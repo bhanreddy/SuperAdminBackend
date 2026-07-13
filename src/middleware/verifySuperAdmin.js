@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const sql = require('../config/db');
+const { schoolSupabaseAdmin } = require('../config/supabase');
 
 /**
  * Express middleware: verify Supabase JWT fully OFFLINE using the project's
@@ -17,27 +18,26 @@ if (!JWT_SECRET) {
   console.warn(
     '\n⚠️  [verifySuperAdmin] SCHOOL_SUPABASE_JWT_SECRET is not set in .env!\n' +
     '   Get it from: Supabase Dashboard → Settings → API → JWT Secret\n' +
-    '   Without it, token verification falls back to a fast decode (no signature check).\n'
+    '   Without it, token verification uses Supabase Auth and requires a network call.\n'
   );
 }
 
 /**
  * Decode/verify the JWT. If secret is configured, fully verifies the signature.
- * If not, does a fast payload-only decode (still checks expiry via the `exp` claim).
+ * If not, asks Supabase Auth to verify the token. Never accept unsigned tokens.
  */
-function decodeToken(token) {
+async function decodeToken(token) {
   if (JWT_SECRET) {
     // Full cryptographic verification — recommended for production
     return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
   }
-  // Fallback: decode without signature check but still guard expiry
-  const payload = jwt.decode(token);
-  if (!payload) throw new Error('Invalid token: cannot decode');
-  if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
-    throw new Error('Token expired');
-  }
-  console.warn('[verifySuperAdmin] JWT signature NOT verified — set SCHOOL_SUPABASE_JWT_SECRET to enable it.');
-  return payload;
+  const { data, error } = await schoolSupabaseAdmin.auth.getUser(token);
+  if (error || !data.user) throw new Error(error?.message || 'Supabase rejected token');
+  return {
+    sub: data.user.id,
+    email: data.user.email,
+    ...(data.user.user_metadata || {}),
+  };
 }
 
 const verifySuperAdminMiddleware = async (req, res, next) => {
@@ -55,7 +55,7 @@ const verifySuperAdminMiddleware = async (req, res, next) => {
     // ── Step 1: Decode JWT locally (NO network call) ─────────────────────────
     let payload;
     try {
-      payload = decodeToken(token);
+      payload = await decodeToken(token);
     } catch (jwtErr) {
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
@@ -69,7 +69,7 @@ const verifySuperAdminMiddleware = async (req, res, next) => {
 
     // ── Step 2: Role check via direct SQL (NO Supabase REST call) ────────────
     const [superAdminRow] = await sql`
-      SELECT id, is_active, email
+      SELECT id, is_active, email, full_name
       FROM super_admins
       WHERE id = ${userId}
          OR (email IS NOT NULL AND LOWER(TRIM(email)) = ${userEmail || '__missing__'})
@@ -77,7 +77,7 @@ const verifySuperAdminMiddleware = async (req, res, next) => {
     `;
 
     const [founderRow] = await sql`
-      SELECT id, user_id, is_active, email
+      SELECT id, user_id, is_active, email, full_name, role
       FROM founders
       WHERE user_id = ${userId}
          OR (email IS NOT NULL AND LOWER(TRIM(email)) = ${userEmail || '__missing__'})
@@ -93,7 +93,14 @@ const verifySuperAdminMiddleware = async (req, res, next) => {
     }
 
     const activeRow = superAdminRow || founderRow;
-    req.superAdmin = { id: userId, email: activeRow.email || userEmail };
+    req.superAdmin = {
+      id: userId,
+      email: activeRow.email || userEmail,
+      fullName: activeRow.full_name || null,
+      isSuperAdmin: Boolean(isSuperAdminOK),
+      founderId: founderRow?.id || null,
+      founderRole: founderRow?.role ? String(founderRow.role).toUpperCase() : null,
+    };
     next();
   } catch (err) {
     console.error('[verifySuperAdmin] Unexpected error:', err.message);

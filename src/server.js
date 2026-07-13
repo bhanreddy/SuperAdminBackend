@@ -8,6 +8,7 @@ const config = require('./config/env');
 const routes = require('./routes');
 const { requestLogger } = require('./middleware/requestLogger');
 const { errorHandler } = require('./middleware/errorHandler');
+const { startCrmAutomationWorker } = require('./services/crmAutomation');
 
 const app = express();
 
@@ -49,4 +50,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   Health check: http://localhost:${PORT}/  or  /health`);
   console.log(`   API prefix:   http://localhost:${PORT}/api/super-admin/`);
   console.log(`   Medical API:  http://localhost:${PORT}/api/v1/medical/\n`);
+  startCrmAutomationWorker();
 });

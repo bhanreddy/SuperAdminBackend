@@ -16,6 +16,8 @@ const express = require('express');
 const sql = require('../../config/db');
 const { sendResponse, sendError } = require('../../utils/apiResponse');
 const { verifySuperAdminMiddleware } = require('../../middleware/verifySuperAdmin');
+const { schoolSupabaseAdmin } = require('../../config/supabase');
+const { getClusterServiceClient } = require('../../utils/clusterClient');
 const {
   BillingError,
   computeFinancialYear,
@@ -28,6 +30,167 @@ const {
 
 const router = express.Router();
 router.use(verifySuperAdminMiddleware);
+
+async function discoverBillingClients() {
+  const { data: clusters, error } = await schoolSupabaseAdmin
+    .from('clusters').select('cluster_id').eq('status', 'active');
+  if (error) throw error;
+  const timeout = (promise, label) => Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out`)), 2500)),
+  ]);
+  const results = await Promise.allSettled((clusters || []).flatMap(({ cluster_id }) => [
+    (async () => {
+      const client = await getClusterServiceClient(cluster_id, 'school');
+      const { data, error: schoolError } = await client
+        .from('schools').select('id,name,code,address,is_active,created_at');
+      if (schoolError) throw schoolError;
+      return (data || []).map((school) => ({
+        id: String(school.id), kind: 'school', cluster_id,
+        name: school.name, code: school.code, address: school.address,
+        is_active: school.is_active, created_at: school.created_at,
+      }));
+    })(),
+    (async () => {
+      const client = await getClusterServiceClient(cluster_id, 'medical');
+      const { data, error: medicalError } = await client.from('medical_profile').select(
+        'id,medical_name,owner_name,address_line_1,address_line_2,city,state,pincode,subscription_status,onboarding_status,created_at'
+      );
+      if (medicalError) throw medicalError;
+      return (data || []).map((shop) => ({
+        id: String(shop.id), kind: 'medical', cluster_id,
+        name: shop.medical_name, code: shop.owner_name || null,
+        address: [shop.address_line_1, shop.address_line_2, shop.city, shop.state, shop.pincode].filter(Boolean).join(', ') || null,
+        is_active: !['cancelled', 'expired'].includes(shop.subscription_status)
+          && shop.onboarding_status !== 'suspended',
+        created_at: shop.created_at,
+      }));
+    })(),
+  ].map((promise, index) => timeout(promise, index % 2 === 0 ? 'School cluster' : 'Medical cluster'))));
+  const clients = results.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
+  return { clients, cluster_unreachable: results.some((result) => result.status === 'rejected') };
+}
+
+// Live tenant roster plus founder-owned subscription settings.
+router.get('/clients', async (_req, res) => {
+  try {
+    const { clients: discovered, cluster_unreachable } = await discoverBillingClients();
+    const settings = await sql`SELECT * FROM billing_clients`;
+    const byKey = new Map(settings.map((row) => [`${row.client_kind}:${row.client_cluster_id}:${row.client_external_id}`, row]));
+    const clients = discovered.map((client) => {
+      const setting = byKey.get(`${client.kind}:${client.cluster_id}:${client.id}`);
+      return {
+        ...client,
+        monthly_fee: setting?.monthly_fee ?? null,
+        payment_link: setting?.payment_link ?? null,
+        subscription_updated_at: setting?.updated_at ?? null,
+      };
+    }).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    return sendResponse(res, 200, { data: clients, cluster_unreachable });
+  } catch (err) {
+    return failBilling(res, err, 'GET /clients');
+  }
+});
+
+router.put('/clients/:kind/:clusterId/:clientId', async (req, res) => {
+  try {
+    const kind = req.params.kind;
+    if (!['school', 'medical'].includes(kind)) return sendError(res, 400, 'VALIDATION_ERROR', 'Unsupported client kind');
+    const monthlyFee = req.body?.monthly_fee === null || req.body?.monthly_fee === ''
+      ? null : Number(req.body?.monthly_fee);
+    if (monthlyFee !== null && (!Number.isFinite(monthlyFee) || monthlyFee < 0)) {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'monthly_fee must be zero or a positive number');
+    }
+    const paymentLink = req.body?.payment_link ? String(req.body.payment_link).trim() : null;
+    if (paymentLink && !/^https:\/\//i.test(paymentLink)) {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'payment_link must be a secure https URL');
+    }
+    const createdBy = req.superAdmin?.id || null;
+    const [row] = await sql`
+      INSERT INTO billing_clients
+        (client_kind, client_cluster_id, client_external_id, monthly_fee, payment_link, updated_by)
+      VALUES (${kind}, ${req.params.clusterId}, ${req.params.clientId}, ${monthlyFee}, ${paymentLink}, ${createdBy})
+      ON CONFLICT (client_kind, client_cluster_id, client_external_id) DO UPDATE SET
+        monthly_fee = EXCLUDED.monthly_fee, payment_link = EXCLUDED.payment_link,
+        updated_by = EXCLUDED.updated_by, updated_at = now()
+      RETURNING *
+    `;
+    return sendResponse(res, 200, row);
+  } catch (err) {
+    return failBilling(res, err, 'PUT /clients/:clusterId/:clientId');
+  }
+});
+
+router.post('/clients/:kind/:clusterId/:clientId/send-payment-link', async (req, res) => {
+  try {
+    if (req.params.kind !== 'school') {
+      return sendError(res, 400, 'MESSAGING_UNAVAILABLE', 'Medical shop messaging is not connected to the SchoolIMS messenger');
+    }
+    const [setting] = await sql`
+      SELECT monthly_fee, payment_link FROM billing_clients
+      WHERE client_kind = ${req.params.kind} AND client_cluster_id = ${req.params.clusterId}
+        AND client_external_id = ${req.params.clientId}
+    `;
+    const link = String(req.body?.payment_link || setting?.payment_link || '').trim();
+    if (!/^https:\/\//i.test(link)) return sendError(res, 400, 'VALIDATION_ERROR', 'Save or enter a secure payment link first');
+
+    const schoolClient = await getClusterServiceClient(req.params.clusterId, 'school');
+    const schoolId = req.params.clientId;
+    const { data: adminRole } = await schoolClient.from('roles').select('id').eq('school_id', schoolId).eq('code', 'admin').maybeSingle();
+    if (!adminRole) return sendError(res, 404, 'ADMIN_NOT_FOUND', 'This school has no admin role');
+    const { data: adminAssignments } = await schoolClient.from('user_roles').select('user_id').eq('school_id', schoolId).eq('role_id', adminRole.id).limit(1);
+    const adminId = adminAssignments?.[0]?.user_id;
+    if (!adminId) return sendError(res, 404, 'ADMIN_NOT_FOUND', 'This school has no assigned admin');
+    let { data: supportUser } = await schoolClient.from('users').select('id').eq('school_id', schoolId).eq('is_support_bot', true).is('deleted_at', null).maybeSingle();
+    if (!supportUser) {
+      const { data: genders } = await schoolClient.from('genders').select('id').limit(1);
+      if (!genders?.[0]) return sendError(res, 409, 'SUPPORT_NOT_INITIALISED', 'This school has no gender seed row required for the support identity');
+      const { data: supportPerson, error: personError } = await schoolClient.from('persons').insert({
+        first_name: 'Nexsyrus', last_name: 'Support', display_name: 'Nexsyrus Support',
+        gender_id: genders[0].id, school_id: Number(schoolId),
+      }).select('id').single();
+      if (personError) throw personError;
+      const { data: createdSupport, error: supportError } = await schoolClient.from('users').insert({
+        person_id: supportPerson.id, school_id: Number(schoolId), account_status: 'active', is_support_bot: true,
+      }).select('id').single();
+      if (supportError) {
+        // A concurrent school-side request may have created the unique support user.
+        const { data: raced } = await schoolClient.from('users').select('id').eq('school_id', schoolId).eq('is_support_bot', true).is('deleted_at', null).maybeSingle();
+        if (!raced) throw supportError;
+        supportUser = raced;
+      } else supportUser = createdSupport;
+    }
+    const [low, high] = [String(adminId), String(supportUser.id)].sort();
+    let { data: conversation } = await schoolClient.from('message_conversations').select('id')
+      .eq('school_id', schoolId).eq('participant_low_user_id', low).eq('participant_high_user_id', high)
+      .eq('pair_type', 'support').is('deleted_at', null).maybeSingle();
+    if (!conversation) {
+      const { data: created, error: createError } = await schoolClient.from('message_conversations')
+        .insert({ school_id: Number(schoolId), pair_type: 'support', participant_low_user_id: low, participant_high_user_id: high })
+        .select('id').single();
+      if (createError) throw createError;
+      conversation = created;
+      const { error: participantError } = await schoolClient.from('message_participants').insert([
+        { conversation_id: conversation.id, school_id: Number(schoolId), user_id: supportUser.id },
+        { conversation_id: conversation.id, school_id: Number(schoolId), user_id: adminId },
+      ]);
+      if (participantError) throw participantError;
+    }
+    const feeText = setting?.monthly_fee == null ? '' : ` Monthly subscription: ₹${Number(setting.monthly_fee).toLocaleString('en-IN')}.`;
+    const body = String(req.body?.message || `Your NexSyrus subscription payment is due.${feeText} Pay securely: ${link}`).trim();
+    const { data: message, error: messageError } = await schoolClient.from('messages')
+      .insert({ conversation_id: conversation.id, school_id: Number(schoolId), sender_user_id: supportUser.id, body })
+      .select('*').single();
+    if (messageError) throw messageError;
+    await schoolClient.from('support_message_notification_outbox').insert({
+      message_id: message.id, conversation_id: conversation.id, school_id: Number(schoolId),
+      target_user_id: adminId, preview: body.slice(0, 120),
+    });
+    return sendResponse(res, 201, { conversation_id: conversation.id, message });
+  } catch (err) {
+    return failBilling(res, err, 'POST /clients/:clusterId/:clientId/send-payment-link');
+  }
+});
 
 // ─── Typed error mapping (no bare catch — always log + return a stable code) ──
 function failBilling(res, err, context) {
@@ -48,7 +211,7 @@ function failBilling(res, err, context) {
   // 42P01 undefined_table / 42703 undefined_column — migration not applied yet.
   if (pgCode === '42P01' || pgCode === '42703') {
     console.error(`[billing] ${context} :: NOT_MIGRATED :: pg=${pgCode} :: ${err.message}`);
-    return sendError(res, 503, 'NOT_MIGRATED', 'Billing tables are missing — apply migration 05_billing.sql to the central database');
+    return sendError(res, 503, 'NOT_MIGRATED', 'Billing tables are missing — apply migrations 05_billing.sql through 10_billing_clients.sql to the central database');
   }
   console.error(`[billing] ${context} :: INTERNAL :: ${err && err.stack ? err.stack : err}`);
   return sendError(res, 500, 'INTERNAL', 'Unexpected billing failure');
@@ -300,7 +463,7 @@ router.get('/documents', async (req, res) => {
       WHERE (${fy}::text IS NULL OR financial_year = ${fy})
         AND (${docType}::text IS NULL OR document_type = ${docType})
         AND (${status}::text IS NULL OR status = ${status})
-        AND (${clientId}::uuid IS NULL OR client_id = ${clientId}::uuid)
+        AND (${clientId}::text IS NULL OR client_id = ${clientId}::text)
       ORDER BY created_at DESC
       LIMIT ${pageSize} OFFSET ${offset}
     `;
@@ -309,7 +472,7 @@ router.get('/documents', async (req, res) => {
       WHERE (${fy}::text IS NULL OR financial_year = ${fy})
         AND (${docType}::text IS NULL OR document_type = ${docType})
         AND (${status}::text IS NULL OR status = ${status})
-        AND (${clientId}::uuid IS NULL OR client_id = ${clientId}::uuid)
+        AND (${clientId}::text IS NULL OR client_id = ${clientId}::text)
     `;
     return sendResponse(res, 200, { data: rows, page, page_size: pageSize, total: count });
   } catch (err) {

@@ -10,6 +10,8 @@ const dashboardRouter = require('./superadmin/dashboard');
 const importRouter = require('./superadmin/import');
 const founderAuthRouter = require('./superadmin/founderAuth');
 const founderCrmRouter = require('./superadmin/founderCrm');
+const crmRouter = require('./superadmin/crm');
+const messengerRouter = require('./superadmin/messenger');
 const contentRouter = require('./superadmin/content');
 const dcgdRouter = require('./superadmin/dcgdPrograms');
 const clustersRouter = require('./superadmin/clusters');
@@ -67,6 +69,12 @@ superAdmin.use('/', importRouter);
 
 // Founder CRM (all under /founder/*)
 superAdmin.use('/founder', founderCrmRouter);
+
+// Top-level CRM command center
+superAdmin.use('/crm', crmRouter);
+
+// Nexsyrus Support inbox (primary shared SchoolIMS DB only)
+superAdmin.use('/messenger', messengerRouter);
 
 // Content
 superAdmin.use('/content', contentRouter);

@@ -1,9 +1,11 @@
 const express = require('express');
 const multer = require('multer');
 const sql = require('../../config/db');
+const crmSql = require('../../config/crmDb');
 const { schoolSupabaseAdmin } = require('../../config/supabase');
 const { sendResponse } = require('../../utils/apiResponse');
 const { verifySuperAdminMiddleware } = require('../../middleware/verifySuperAdmin');
+const { requireCrmWrite, requireFinanceApproval } = require('../../middleware/crmAccess');
 
 const upload = multer({ storage: multer.memoryStorage() });
 const router = express.Router();
@@ -136,15 +138,15 @@ router.get('/expenses', async (req, res) => {
   }
 });
 
-router.post('/expenses', async (req, res) => {
+router.post('/expenses', requireCrmWrite, async (req, res) => {
   try {
-    const { title, description, amount, category, receipt_url, created_by_founder_id } = req.body;
+    const { title, description, amount, category, receipt_url } = req.body;
     if (!title || !amount || !category) {
       return res.status(400).json({ error: 'title, amount, and category are required' });
     }
     const [row] = await sql`
       INSERT INTO expenses (title, description, amount, category, receipt_url, status, created_by_founder_id)
-      VALUES (${title}, ${description || null}, ${amount}, ${category}, ${receipt_url || null}, 'PENDING', ${created_by_founder_id || null})
+      VALUES (${title}, ${description || null}, ${amount}, ${category}, ${receipt_url || null}, 'PENDING', ${req.superAdmin.founderId || null})
       RETURNING *
     `;
     return sendResponse(res, 201, row);
@@ -154,13 +156,12 @@ router.post('/expenses', async (req, res) => {
   }
 });
 
-router.post('/expenses/:id/approve', async (req, res) => {
+router.post('/expenses/:id/approve', requireFinanceApproval, async (req, res) => {
   try {
     const { id } = req.params;
-    const { approver_founder_id } = req.body;
     await sql`
       UPDATE expenses
-      SET status = 'APPROVED', approved_by_founder_id = ${approver_founder_id || null}, rejection_reason = NULL
+      SET status = 'APPROVED', approved_by_founder_id = ${req.superAdmin.founderId || null}, rejection_reason = NULL
       WHERE id = ${id}
     `;
     return sendResponse(res, 200, { success: true });
@@ -170,13 +171,13 @@ router.post('/expenses/:id/approve', async (req, res) => {
   }
 });
 
-router.post('/expenses/:id/reject', async (req, res) => {
+router.post('/expenses/:id/reject', requireFinanceApproval, async (req, res) => {
   try {
     const { id } = req.params;
-    const { approver_founder_id, reason } = req.body;
+    const { reason } = req.body;
     await sql`
       UPDATE expenses
-      SET status = 'REJECTED', approved_by_founder_id = ${approver_founder_id || null}, rejection_reason = ${reason || null}
+      SET status = 'REJECTED', approved_by_founder_id = ${req.superAdmin.founderId || null}, rejection_reason = ${reason || null}
       WHERE id = ${id}
     `;
     return sendResponse(res, 200, { success: true });
@@ -186,7 +187,7 @@ router.post('/expenses/:id/reject', async (req, res) => {
   }
 });
 
-router.post('/expenses/:id/receipt', upload.single('file'), async (req, res) => {
+router.post('/expenses/:id/receipt', requireCrmWrite, upload.single('file'), async (req, res) => {
   try {
     const { id } = req.params;
     const { founder_id } = req.body;
@@ -305,9 +306,69 @@ router.get('/collections', async (req, res) => {
   }
 });
 
-router.post('/collections', async (req, res) => {
+// Financial summary for the Founder Console. Business units currently own
+// collections, not expenses, so expense totals deliberately remain platform-wide.
+router.get('/financial-summary', async (req, res) => {
   try {
-    const { business_unit_id, amount, month, year, payment_mode, created_by_founder_id, notes } =
+    const { period = 'THIS_MONTH', business_unit_id } = req.query;
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    let collectionPeriod = sql``;
+    let expensePeriod = sql``;
+    let billingPeriod = sql``;
+
+    if (period === 'THIS_MONTH') {
+      collectionPeriod = sql`AND c.year = ${year} AND c.month = ${month}`;
+      expensePeriod = sql`AND EXTRACT(YEAR FROM e.created_at) = ${year} AND EXTRACT(MONTH FROM e.created_at) = ${month}`;
+      billingPeriod = sql`AND EXTRACT(YEAR FROM b.issued_at) = ${year} AND EXTRACT(MONTH FROM b.issued_at) = ${month}`;
+    } else if (period === 'LAST_MONTH') {
+      const lastMonth = month === 1 ? 12 : month - 1;
+      const lastYear = month === 1 ? year - 1 : year;
+      collectionPeriod = sql`AND c.year = ${lastYear} AND c.month = ${lastMonth}`;
+      expensePeriod = sql`AND EXTRACT(YEAR FROM e.created_at) = ${lastYear} AND EXTRACT(MONTH FROM e.created_at) = ${lastMonth}`;
+      billingPeriod = sql`AND EXTRACT(YEAR FROM b.issued_at) = ${lastYear} AND EXTRACT(MONTH FROM b.issued_at) = ${lastMonth}`;
+    } else if (period === 'THIS_YEAR') {
+      collectionPeriod = sql`AND c.year = ${year}`;
+      expensePeriod = sql`AND EXTRACT(YEAR FROM e.created_at) = ${year}`;
+      billingPeriod = sql`AND EXTRACT(YEAR FROM b.issued_at) = ${year}`;
+    }
+
+    const unitFilter = business_unit_id && business_unit_id !== 'ALL'
+      ? sql`AND c.business_unit_id = ${business_unit_id}`
+      : sql``;
+    const [[revenue], [expenses], [billing]] = await Promise.all([
+      sql`SELECT COALESCE(SUM(c.amount), 0) AS total FROM collections c WHERE c.status = 'APPROVED' ${collectionPeriod} ${unitFilter}`,
+      sql`SELECT COALESCE(SUM(e.amount), 0) AS total FROM expenses e WHERE e.status = 'APPROVED' AND e.school_id IS NULL ${expensePeriod}`,
+      // Billing documents are marked issued only once the founder records the
+      // client charge. Cancelled documents are excluded from collected money.
+      sql`SELECT COALESCE(SUM(b.total_amount), 0) AS total FROM billing_documents b WHERE b.status = 'issued' ${billingPeriod}`,
+    ]);
+    const businessUnitCollections = Number(revenue.total || 0);
+    const clientBillingCollected = Number(billing.total || 0);
+    const totalRevenue = businessUnitCollections + clientBillingCollected;
+    const totalExpenses = Number(expenses.total || 0);
+    const netProfit = totalRevenue - totalExpenses;
+    return sendResponse(res, 200, {
+      period,
+      business_unit_id: business_unit_id || 'ALL',
+      revenue: totalRevenue,
+      business_unit_collections: businessUnitCollections,
+      client_billing_collected: clientBillingCollected,
+      expenses: totalExpenses,
+      net_profit: netProfit,
+      profit_margin: totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : null,
+      expenses_scope: 'platform',
+    });
+  } catch (err) {
+    console.error('Error fetching financial summary:', err);
+    return res.status(500).json({ error: 'Failed to fetch financial summary' });
+  }
+});
+
+router.post('/collections', requireCrmWrite, async (req, res) => {
+  try {
+    const { business_unit_id, amount, month, year, payment_mode, notes } =
       req.body;
     if (!business_unit_id || !amount || !month || !year || !payment_mode) {
       return res
@@ -317,7 +378,7 @@ router.post('/collections', async (req, res) => {
 
     const [row] = await sql`
       INSERT INTO collections (business_unit_id, amount, month, year, payment_mode, status, created_by_founder_id, notes)
-      VALUES (${business_unit_id}, ${amount}, ${month}, ${year}, ${payment_mode}, 'PENDING', ${created_by_founder_id || null}, ${notes || null})
+      VALUES (${business_unit_id}, ${amount}, ${month}, ${year}, ${payment_mode}, 'PENDING', ${req.superAdmin.founderId || null}, ${notes || null})
       RETURNING *
     `;
 
@@ -331,13 +392,12 @@ router.post('/collections', async (req, res) => {
   }
 });
 
-router.post('/collections/:id/approve', async (req, res) => {
+router.post('/collections/:id/approve', requireFinanceApproval, async (req, res) => {
   try {
     const { id } = req.params;
-    const { approver_founder_id } = req.body;
     await sql`
       UPDATE collections
-      SET status = 'APPROVED', approved_by_founder_id = ${approver_founder_id || null}, rejection_reason = NULL
+      SET status = 'APPROVED', approved_by_founder_id = ${req.superAdmin.founderId || null}, rejection_reason = NULL
       WHERE id = ${id}
     `;
     return sendResponse(res, 200, { success: true });
@@ -347,13 +407,13 @@ router.post('/collections/:id/approve', async (req, res) => {
   }
 });
 
-router.post('/collections/:id/reject', async (req, res) => {
+router.post('/collections/:id/reject', requireFinanceApproval, async (req, res) => {
   try {
     const { id } = req.params;
-    const { approver_founder_id, reason } = req.body;
+    const { reason } = req.body;
     await sql`
       UPDATE collections
-      SET status = 'REJECTED', approved_by_founder_id = ${approver_founder_id || null}, rejection_reason = ${reason || null}
+      SET status = 'REJECTED', approved_by_founder_id = ${req.superAdmin.founderId || null}, rejection_reason = ${reason || null}
       WHERE id = ${id}
     `;
     return sendResponse(res, 200, { success: true });
@@ -371,25 +431,30 @@ router.get('/enquiries', async (req, res) => {
   try {
     const { status, source, category, assignedTo } = req.query;
 
-    let statusFilter = sql``;
-    if (status && status !== 'ALL') statusFilter = sql`AND e.status = ${status}`;
+    let statusFilter = crmSql``;
+    if (status && status !== 'ALL') statusFilter = crmSql`AND e.status = ${status}`;
 
-    let sourceFilter = sql``;
-    if (source && source !== 'ALL') sourceFilter = sql`AND e.source = ${source}`;
+    let sourceFilter = crmSql``;
+    if (source && source !== 'ALL') sourceFilter = crmSql`AND e.website_source = ${source}`;
 
-    let categoryFilter = sql``;
-    if (category && category !== 'ALL') categoryFilter = sql`AND e.category = ${category}`;
+    let categoryFilter = crmSql``;
+    if (category && category !== 'ALL') categoryFilter = crmSql`AND e.category = ${category}`;
 
-    let assignedFilter = sql``;
-    if (assignedTo === 'UNASSIGNED') {
-      assignedFilter = sql`AND e.assigned_to IS NULL`;
+    // Non-super founders are locked to leads assigned to them; full super
+    // admins may use the UNASSIGNED / specific-owner filters freely.
+    const scopeId = req.superAdmin?.isSuperAdmin ? null : (req.superAdmin?.founderId || null);
+    let assignedFilter = crmSql``;
+    if (scopeId) {
+      assignedFilter = crmSql`AND e.assigned_to = ${scopeId}`;
+    } else if (assignedTo === 'UNASSIGNED') {
+      assignedFilter = crmSql`AND e.assigned_to IS NULL`;
     } else if (assignedTo && assignedTo !== 'ALL') {
-      assignedFilter = sql`AND e.assigned_to = ${assignedTo}`;
+      assignedFilter = crmSql`AND e.assigned_to = ${assignedTo}`;
     }
 
-    const rows = await sql`
-      SELECT id, name, email, phone, source, category, status, assigned_to,
-             deal_value, notes, created_at, updated_at
+    const rows = await crmSql`
+      SELECT id, name, email, phone, website_source AS source, category, status, assigned_to,
+             deal_value, message AS notes, organization, budget_range, created_at, updated_at
       FROM enquiries e
       WHERE TRUE ${statusFilter} ${sourceFilter} ${categoryFilter} ${assignedFilter}
       ORDER BY created_at DESC
@@ -406,10 +471,10 @@ router.get('/enquiries/stats', async (req, res) => {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
 
-    const [todayResult] = await sql`
+    const [todayResult] = await crmSql`
       SELECT COUNT(*) AS count FROM enquiries WHERE created_at >= ${start.toISOString()}
     `;
-    const [unassignedResult] = await sql`
+    const [unassignedResult] = await crmSql`
       SELECT COUNT(*) AS count FROM enquiries WHERE assigned_to IS NULL
     `;
 
@@ -423,7 +488,7 @@ router.get('/enquiries/stats', async (req, res) => {
   }
 });
 
-router.patch('/enquiries/:id', async (req, res) => {
+router.patch('/enquiries/:id', requireCrmWrite, async (req, res) => {
   try {
     const { id } = req.params;
     const { status, assigned_to, deal_value, notes } = req.body;
@@ -437,12 +502,12 @@ router.patch('/enquiries/:id', async (req, res) => {
       return res.status(400).json({ error: 'No fields to update' });
     }
 
-    await sql`
+    await crmSql`
       UPDATE enquiries SET
         status = COALESCE(${fields.status ?? null}, status),
         assigned_to = CASE WHEN ${fields.assigned_to !== undefined} THEN ${fields.assigned_to ?? null} ELSE assigned_to END,
         deal_value = CASE WHEN ${fields.deal_value !== undefined} THEN ${fields.deal_value ?? null} ELSE deal_value END,
-        notes = CASE WHEN ${fields.notes !== undefined} THEN ${fields.notes ?? null} ELSE notes END,
+        message = CASE WHEN ${fields.notes !== undefined} THEN ${fields.notes ?? null} ELSE message END,
         updated_at = NOW()
       WHERE id = ${id}
     `;
@@ -496,7 +561,7 @@ router.get('/business-units', async (req, res) => {
   }
 });
 
-router.post('/business-units', async (req, res) => {
+router.post('/business-units', requireCrmWrite, async (req, res) => {
   try {
     const { name, code, subscription_price, subscription_plan, phone } = req.body;
     const nameTrim = name != null ? String(name).trim() : '';
@@ -533,7 +598,7 @@ router.post('/business-units', async (req, res) => {
   }
 });
 
-router.patch('/business-units/:id', async (req, res) => {
+router.patch('/business-units/:id', requireCrmWrite, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, code, is_active, subscription_price, subscription_plan, phone } = req.body;

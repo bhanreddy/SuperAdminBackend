@@ -28,6 +28,9 @@ const config = {
   // School Postgres direct connection (for raw SQL on school tables)
   schoolDatabaseUrl: required('SCHOOL_DATABASE_URL'),
 
+  // Dedicated Nexsyrus CRM / website enquiries database.
+  crmDatabaseUrl: optional('CRM_DATABASE_URL', ''),
+
   // Medical Supabase project (medical_profile + POS tables)
   medicalSupabase: {
     url: optional('MEDICAL_SUPABASE_URL', ''),
