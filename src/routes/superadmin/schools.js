@@ -9,6 +9,7 @@ const {
 } = require('../../utils/schoolEmail');
 
 const { getClusterServiceClient } = require('../../utils/clusterClient');
+const { purgeSchool } = require('../../utils/purgeSchool');
 
 const router = express.Router();
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
@@ -397,27 +398,43 @@ router.post('/:id/first-admin', verifySuperAdminMiddleware, async (req, res) => 
 // DELETE /api/super-admin/schools/:id
 router.delete('/:id', verifySuperAdminMiddleware, async (req, res) => {
   try {
-    const { id } = req.params;
-    
-    const { school, client, cluster_id } = await findSchoolAndClient(id);
-    if (!school) return res.status(404).json({ error: 'School not found' });
-
-    // Note: RPC call to bypass delete triggers for school deletion
-    // If not available, we delete normally and hope RLS/triggers allow it
-    const { data: deletedSchool, error } = await client.from('schools').delete().eq('id', id).select().single();
-    
-    if (error) throw error;
-
-    // decrement count
-    const { data: cluster } = await schoolSupabaseAdmin.from('clusters').select('school_count').eq('cluster_id', cluster_id).single();
-    if (cluster) {
-      await schoolSupabaseAdmin.from('clusters').update({ school_count: Math.max(0, cluster.school_count - 1) }).eq('cluster_id', cluster_id);
+    const schoolId = Number(req.params.id);
+    if (!Number.isInteger(schoolId) || schoolId <= 0) {
+      return res.status(400).json({ error: 'Invalid school id' });
     }
 
-    return sendResponse(res, 200, { success: true, message: 'School deleted successfully', school: deletedSchool });
+    const { school, cluster_id } = await findSchoolAndClient(schoolId);
+    if (!school) return res.status(404).json({ error: 'School not found' });
+
+    const deletedSchool = await purgeSchool(sql, schoolId);
+    if (!deletedSchool) {
+      return res.status(404).json({ error: 'School not found' });
+    }
+
+    if (cluster_id) {
+      const { data: cluster } = await schoolSupabaseAdmin
+        .from('clusters')
+        .select('school_count')
+        .eq('cluster_id', cluster_id)
+        .single();
+      if (cluster) {
+        await schoolSupabaseAdmin
+          .from('clusters')
+          .update({ school_count: Math.max(0, (cluster.school_count || 0) - 1) })
+          .eq('cluster_id', cluster_id);
+      }
+    }
+
+    return sendResponse(res, 200, {
+      success: true,
+      message: 'School deleted successfully',
+      school: deletedSchool,
+    });
   } catch (err) {
     console.error('Error deleting school:', err);
-    res.status(500).json({ error: 'Failed to delete school' });
+    res.status(500).json({
+      error: err?.message || 'Failed to delete school',
+    });
   }
 });
 

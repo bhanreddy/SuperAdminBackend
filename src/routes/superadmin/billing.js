@@ -31,6 +31,73 @@ const {
 const router = express.Router();
 router.use(verifySuperAdminMiddleware);
 
+async function syncSchoolSubscription(clusterId, schoolId, subscription) {
+  const schoolClient = await getClusterServiceClient(clusterId, 'school');
+  const { error } = await schoolClient.from('saas_subscriptions').upsert({
+    school_id: Number(schoolId),
+    plan_name: subscription.plan_name,
+    billing_cycle: subscription.billing_cycle,
+    subscription_status: subscription.subscription_status,
+    monthly_fee: subscription.monthly_fee,
+    current_period_start: subscription.current_period_start,
+    current_period_end: subscription.current_period_end,
+    next_due_date: subscription.next_due_date,
+    amount_due: subscription.amount_due,
+    currency: subscription.currency || 'INR',
+    reminder_enabled: subscription.reminder_enabled,
+    reminder_message: subscription.reminder_message,
+    last_paid_at: subscription.last_paid_at,
+    updated_by: subscription.updated_by,
+    updated_at: subscription.updated_at || new Date().toISOString(),
+  }, { onConflict: 'school_id' });
+  if (error) throw error;
+
+  const { error: bannerError } = await schoolClient.from('schools').update({
+    payment_banner_enabled: subscription.reminder_enabled,
+    payment_banner_reason: subscription.reminder_message,
+  }).eq('id', schoolId);
+  if (bannerError) throw bannerError;
+}
+
+async function syncSchoolReceipt(document, config) {
+  if (document.document_type !== 'receipt' || document.client_kind !== 'school'
+      || !document.client_cluster_id || !document.client_id) return false;
+  const schoolClient = await getClusterServiceClient(document.client_cluster_id, 'school');
+  const payload = {
+    ...document,
+    supplier_legal_name: config.supplier_legal_name,
+    supplier_address: config.supplier_address,
+    supplier_logo_url: config.supplier_logo_url,
+    currency: 'INR',
+  };
+  const { error } = await schoolClient.from('saas_subscription_receipts').upsert({
+    id: document.id,
+    school_id: Number(document.client_id),
+    document_number: document.document_number,
+    financial_year: document.financial_year,
+    total_amount: document.total_amount,
+    status: document.status,
+    document_payload: payload,
+    issued_at: document.issued_at,
+    created_at: document.created_at,
+    synced_at: new Date().toISOString(),
+  }, { onConflict: 'id' });
+  if (error) throw error;
+  return true;
+}
+
+async function syncSchoolReceiptCancellation(document) {
+  if (document.document_type !== 'receipt' || document.client_kind !== 'school'
+      || !document.client_cluster_id || !document.client_id) return false;
+  const schoolClient = await getClusterServiceClient(document.client_cluster_id, 'school');
+  const { error } = await schoolClient.from('saas_subscription_receipts').update({
+    status: 'cancelled',
+    synced_at: new Date().toISOString(),
+  }).eq('id', document.id).eq('school_id', document.client_id);
+  if (error) throw error;
+  return true;
+}
+
 async function discoverBillingClients() {
   const { data: clusters, error } = await schoolSupabaseAdmin
     .from('clusters').select('cluster_id').eq('status', 'active');
@@ -45,10 +112,19 @@ async function discoverBillingClients() {
       const { data, error: schoolError } = await client
         .from('schools').select('id,name,code,address,is_active,created_at');
       if (schoolError) throw schoolError;
+      const { data: subscriptions, error: subscriptionError } = await client
+        .from('saas_subscriptions').select('*');
+      if (subscriptionError && subscriptionError.code !== '42P01') {
+        console.warn(`[billing] cluster ${cluster_id} subscription read failed:`, subscriptionError.message);
+      }
+      const subscriptionBySchool = new Map(
+        (subscriptions || []).map((subscription) => [String(subscription.school_id), subscription])
+      );
       return (data || []).map((school) => ({
         id: String(school.id), kind: 'school', cluster_id,
         name: school.name, code: school.code, address: school.address,
         is_active: school.is_active, created_at: school.created_at,
+        runtime_subscription: subscriptionBySchool.get(String(school.id)) || null,
       }));
     })(),
     (async () => {
@@ -78,11 +154,32 @@ router.get('/clients', async (_req, res) => {
     const settings = await sql`SELECT * FROM billing_clients`;
     const byKey = new Map(settings.map((row) => [`${row.client_kind}:${row.client_cluster_id}:${row.client_external_id}`, row]));
     const clients = discovered.map((client) => {
-      const setting = byKey.get(`${client.kind}:${client.cluster_id}:${client.id}`);
+      const centralSetting = byKey.get(`${client.kind}:${client.cluster_id}:${client.id}`);
+      // The cluster row is the runtime source of truth: SchoolIMS updates it
+      // after a successful PhonePe payment without calling this local API.
+      const setting = client.runtime_subscription || centralSetting;
       return {
-        ...client,
+        id: client.id,
+        kind: client.kind,
+        cluster_id: client.cluster_id,
+        name: client.name,
+        code: client.code,
+        address: client.address,
+        is_active: client.is_active,
+        created_at: client.created_at,
         monthly_fee: setting?.monthly_fee ?? null,
-        payment_link: setting?.payment_link ?? null,
+        payment_link: centralSetting?.payment_link ?? null,
+        plan_name: setting?.plan_name ?? 'NexSyrus School ERP',
+        billing_cycle: setting?.billing_cycle ?? 'monthly',
+        subscription_status: setting?.subscription_status ?? 'active',
+        current_period_start: setting?.current_period_start ?? null,
+        current_period_end: setting?.current_period_end ?? null,
+        next_due_date: setting?.next_due_date ?? null,
+        amount_due: setting?.amount_due ?? 0,
+        currency: setting?.currency ?? 'INR',
+        reminder_enabled: setting?.reminder_enabled ?? false,
+        reminder_message: setting?.reminder_message ?? null,
+        last_paid_at: setting?.last_paid_at ?? null,
         subscription_updated_at: setting?.updated_at ?? null,
       };
     }).sort((a, b) => String(a.name).localeCompare(String(b.name)));
@@ -105,16 +202,68 @@ router.put('/clients/:kind/:clusterId/:clientId', async (req, res) => {
     if (paymentLink && !/^https:\/\//i.test(paymentLink)) {
       return sendError(res, 400, 'VALIDATION_ERROR', 'payment_link must be a secure https URL');
     }
+    const planName = String(req.body?.plan_name || 'NexSyrus School ERP').trim().slice(0, 120);
+    const billingCycle = String(req.body?.billing_cycle || 'monthly');
+    const subscriptionStatus = String(req.body?.subscription_status || 'active');
+    if (!['monthly', 'quarterly', 'annual', 'custom'].includes(billingCycle)) {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'Unsupported billing cycle');
+    }
+    if (!['trial', 'active', 'past_due', 'paused', 'cancelled'].includes(subscriptionStatus)) {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'Unsupported subscription status');
+    }
+    const amountDue = req.body?.amount_due === null || req.body?.amount_due === ''
+      ? 0 : Number(req.body?.amount_due ?? monthlyFee ?? 0);
+    if (!Number.isFinite(amountDue) || amountDue < 0) {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'amount_due must be zero or a positive number');
+    }
+    const reminderEnabled = Boolean(req.body?.reminder_enabled);
+    const reminderMessage = req.body?.reminder_message ? String(req.body.reminder_message).trim() : null;
+    if (reminderMessage && reminderMessage.length > 280) {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'reminder_message must be 280 characters or fewer');
+    }
+    const dateOrNull = (value, field) => {
+      if (!value) return null;
+      const text = String(value).slice(0, 10);
+      const parsed = new Date(`${text}T00:00:00Z`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(text) || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== text) {
+        throw new BillingError('VALIDATION_ERROR', `${field} must use YYYY-MM-DD format`);
+      }
+      return text;
+    };
     const createdBy = req.superAdmin?.id || null;
     const [row] = await sql`
       INSERT INTO billing_clients
-        (client_kind, client_cluster_id, client_external_id, monthly_fee, payment_link, updated_by)
-      VALUES (${kind}, ${req.params.clusterId}, ${req.params.clientId}, ${monthlyFee}, ${paymentLink}, ${createdBy})
+        (client_kind, client_cluster_id, client_external_id, monthly_fee, payment_link,
+         plan_name, billing_cycle, subscription_status, current_period_start,
+         current_period_end, next_due_date, amount_due, reminder_enabled,
+         reminder_message, updated_by)
+      VALUES (${kind}, ${req.params.clusterId}, ${req.params.clientId}, ${monthlyFee}, ${paymentLink},
+              ${planName}, ${billingCycle}, ${subscriptionStatus}, ${dateOrNull(req.body?.current_period_start, 'current_period_start')},
+              ${dateOrNull(req.body?.current_period_end, 'current_period_end')}, ${dateOrNull(req.body?.next_due_date, 'next_due_date')}, ${amountDue},
+              ${reminderEnabled}, ${reminderMessage}, ${createdBy})
       ON CONFLICT (client_kind, client_cluster_id, client_external_id) DO UPDATE SET
         monthly_fee = EXCLUDED.monthly_fee, payment_link = EXCLUDED.payment_link,
+        plan_name = EXCLUDED.plan_name, billing_cycle = EXCLUDED.billing_cycle,
+        subscription_status = EXCLUDED.subscription_status,
+        current_period_start = EXCLUDED.current_period_start,
+        current_period_end = EXCLUDED.current_period_end,
+        next_due_date = EXCLUDED.next_due_date, amount_due = EXCLUDED.amount_due,
+        reminder_enabled = EXCLUDED.reminder_enabled,
+        reminder_message = EXCLUDED.reminder_message,
         updated_by = EXCLUDED.updated_by, updated_at = now()
       RETURNING *
     `;
+    // SuperAdmin is commonly run locally, so it writes directly to the target
+    // cluster. SchoolIMS never needs this API to be online at runtime.
+    if (kind === 'school') {
+      try {
+        await syncSchoolSubscription(req.params.clusterId, req.params.clientId, row);
+      } catch (syncError) {
+        console.error('[billing] school subscription sync failed:', syncError?.message || syncError);
+        return sendError(res, 502, 'CLUSTER_SYNC_FAILED',
+          'Subscription was saved centrally but could not be copied to the school database. Apply the SchoolIMS billing migration and save again.');
+      }
+    }
     return sendResponse(res, 200, row);
   } catch (err) {
     return failBilling(res, err, 'PUT /clients/:clusterId/:clientId');
@@ -211,7 +360,7 @@ function failBilling(res, err, context) {
   // 42P01 undefined_table / 42703 undefined_column — migration not applied yet.
   if (pgCode === '42P01' || pgCode === '42703') {
     console.error(`[billing] ${context} :: NOT_MIGRATED :: pg=${pgCode} :: ${err.message}`);
-    return sendError(res, 503, 'NOT_MIGRATED', 'Billing tables are missing — apply migrations 05_billing.sql through 10_billing_clients.sql to the central database');
+    return sendError(res, 503, 'NOT_MIGRATED', 'Billing tables are missing — apply migrations 05_billing.sql through 11_subscription_portal.sql to the central database');
   }
   console.error(`[billing] ${context} :: INTERNAL :: ${err && err.stack ? err.stack : err}`);
   return sendError(res, 500, 'INTERNAL', 'Unexpected billing failure');
@@ -437,7 +586,19 @@ router.post('/documents/issue', async (req, res) => {
       return row;
     });
 
-    return sendResponse(res, 201, inserted);
+    let portalSynced = false;
+    let portalSyncWarning = null;
+    try {
+      portalSynced = await syncSchoolReceipt(inserted, config);
+    } catch (syncError) {
+      portalSyncWarning = 'The receipt was issued, but it could not be copied to the school portal. Apply the SchoolIMS billing migration, then contact support before issuing another receipt.';
+      console.error('[billing] issued receipt cluster sync failed:', syncError?.message || syncError);
+    }
+    return sendResponse(res, 201, {
+      ...inserted,
+      portal_synced: portalSynced,
+      ...(portalSyncWarning ? { portal_sync_warning: portalSyncWarning } : {}),
+    });
   } catch (err) {
     return failBilling(res, err, 'POST /documents/issue');
   }
@@ -494,7 +655,7 @@ router.get('/documents/:id', async (req, res) => {
 // ─── POST /documents/:id/cancel — status -> cancelled (never delete) ─────────
 router.post('/documents/:id/cancel', async (req, res) => {
   try {
-    const [existing] = await sql`SELECT status FROM billing_documents WHERE id = ${req.params.id}::uuid`;
+    const [existing] = await sql`SELECT * FROM billing_documents WHERE id = ${req.params.id}::uuid`;
     if (!existing) return sendError(res, 404, 'DOCUMENT_NOT_FOUND', 'No billing document with that id');
     if (existing.status === 'cancelled') {
       return sendError(res, 409, 'ALREADY_CANCELLED', 'This document is already cancelled');
@@ -504,7 +665,17 @@ router.post('/documents/:id/cancel', async (req, res) => {
       WHERE id = ${req.params.id}::uuid
       RETURNING *
     `;
-    return sendResponse(res, 200, row);
+    let portalSyncWarning = null;
+    try {
+      await syncSchoolReceiptCancellation(row);
+    } catch (syncError) {
+      portalSyncWarning = 'The document was cancelled centrally, but the school portal could not be updated.';
+      console.error('[billing] cancelled receipt cluster sync failed:', syncError?.message || syncError);
+    }
+    return sendResponse(res, 200, {
+      ...row,
+      ...(portalSyncWarning ? { portal_sync_warning: portalSyncWarning } : {}),
+    });
   } catch (err) {
     return failBilling(res, err, 'POST /documents/:id/cancel');
   }
