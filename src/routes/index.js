@@ -17,6 +17,7 @@ const dcgdRouter = require('./superadmin/dcgdPrograms');
 const clustersRouter = require('./superadmin/clusters');
 const billingRouter = require('./superadmin/billing');
 const postersRouter = require('./superadmin/posters');
+const payrollRouter = require('./superadmin/payroll');
 
 // Public (unauthenticated) routes
 const publicRouter = require('./public');
@@ -87,6 +88,9 @@ superAdmin.use('/billing', billingRouter);
 
 // Festival posters (upload + manage) under /posters/*
 superAdmin.use('/posters', postersRouter);
+
+// Employee master, autonomous payroll and HR documents.
+superAdmin.use('/payroll', payrollRouter);
 
 router.use('/api/super-admin', superAdmin);
 

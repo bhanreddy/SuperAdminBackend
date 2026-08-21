@@ -9,6 +9,7 @@ const routes = require('./routes');
 const { requestLogger } = require('./middleware/requestLogger');
 const { errorHandler } = require('./middleware/errorHandler');
 const { startCrmAutomationWorker } = require('./services/crmAutomation');
+const { startPayrollAutomationWorker } = require('./services/payrollAutomation');
 
 const app = express();
 
@@ -31,8 +32,8 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 // Logging
 app.use(requestLogger);
@@ -51,4 +52,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   API prefix:   http://localhost:${PORT}/api/super-admin/`);
   console.log(`   Medical API:  http://localhost:${PORT}/api/v1/medical/\n`);
   startCrmAutomationWorker();
+  startPayrollAutomationWorker();
 });

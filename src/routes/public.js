@@ -4,6 +4,7 @@ const sql = require('../config/db');
 const crmSql = require('../config/crmDb');
 const { schoolSupabaseAdmin } = require('../config/supabase');
 const { sendResponse } = require('../utils/apiResponse');
+const { renderVerificationHtml } = require('../utils/employeeDocument');
 
 const BUCKET = 'festival-posters';
 const VALID_APPS = ['schoolims', 'medipos', 'paperforge'];
@@ -11,6 +12,35 @@ const VALID_APPS = ['schoolims', 'medipos', 'paperforge'];
 const router = express.Router();
 const WEBSITE_KEYS = new Set(['main-site', 'school-erp', 'medical-erp', 'e-commerce', 'restaurant-management', 'bhanu-site']);
 const visitorToken = (req) => String(req.get('x-visitor-token') || '').trim();
+
+// GET /api/public/hr-documents/verify/:token
+// Public certificate verification deliberately exposes only identity and
+// document metadata. Payroll amounts, bank details and statutory identifiers
+// never leave the authenticated payroll API.
+router.get('/hr-documents/verify/:token', async (req, res) => {
+  const token = String(req.params.token || '').trim();
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  try {
+    let record = null;
+    if (uuid.test(token)) {
+      [record] = await sql`
+        SELECT d.document_type, d.document_number, d.title, d.generated_at,
+               e.full_name, e.employee_code, e.designation, e.department
+        FROM employee_documents d
+        JOIN employees e ON e.id = d.employee_id
+        WHERE d.verification_token = ${token}::uuid
+        LIMIT 1
+      `.catch(() => []);
+    }
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.set('Cache-Control', 'no-store');
+    return res.status(record ? 200 : 404).send(renderVerificationHtml(record));
+  } catch (err) {
+    console.error('HR document verification failed:', err);
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    return res.status(500).send(renderVerificationHtml(null));
+  }
+});
 
 router.post('/website-chat/start', async (req, res) => {
   try {
