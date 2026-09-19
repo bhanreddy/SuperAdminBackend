@@ -17,6 +17,9 @@ const optional = (key, defaultValue) => {
 
 const config = {
   port: Number(optional('PORT', '4000')),
+  // Canonical public backend origin used in certificate verification links.
+  // When omitted, document rendering safely derives the current request origin.
+  publicBaseUrl: optional('PUBLIC_BASE_URL', ''),
 
   // School Supabase project (JWT auth + super_admins/founders + storage)
   schoolSupabase: {

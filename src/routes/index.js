@@ -19,6 +19,7 @@ const billingRouter = require('./superadmin/billing');
 const postersRouter = require('./superadmin/posters');
 const backupsRouter = require('./superadmin/backups');
 const sprintRouter = require('./superadmin/sprint');
+const payrollRouter = require('./superadmin/payroll');
 
 // Public (unauthenticated) routes
 const publicRouter = require('./public');
@@ -89,6 +90,9 @@ superAdmin.use('/billing', billingRouter);
 
 // Festival posters (upload + manage) under /posters/*
 superAdmin.use('/posters', postersRouter);
+
+// Employee master, autonomous payroll and HR documents.
+superAdmin.use('/payroll', payrollRouter);
 
 // Database Backups Subsystem
 superAdmin.use('/backups', backupsRouter);
