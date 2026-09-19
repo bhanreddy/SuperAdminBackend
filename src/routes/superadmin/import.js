@@ -207,6 +207,8 @@ router.post(
           const aparRaw = row['APAR Number'];
           const hasPenInRow = penRaw != null && String(penRaw).trim() !== '';
           const aparNumber = (aparRaw != null && String(aparRaw).trim() !== '') ? String(aparRaw).trim() : null;
+          const villageRaw = row['Village'];
+          const village = (villageRaw != null && String(villageRaw).trim() !== '') ? String(villageRaw).trim() : null;
           let admissionDate = row['Admission Date'];
           const className = row['Class']?.toString().trim();
           const sectionName = row['Section']?.toString().trim();
@@ -343,13 +345,13 @@ router.post(
             // 2. Create Student (with category_id, religion_id, blood_group_id)
             const [student] = normalizedPenNumber
               ? await tx`
-                  INSERT INTO students (school_id, person_id, admission_no, pen_number, apar_number, admission_date, status_id, category_id, religion_id, blood_group_id)
-                  VALUES (${schoolId}, ${person.id}, ${admissionNo.toString()}, ${normalizedPenNumber}, ${aparNumber}, ${admissionDate}, ${statusId}, ${categoryId}, ${religionId}, ${bloodGroupId})
+                  INSERT INTO students (school_id, person_id, admission_no, pen_number, apar_number, village, admission_date, status_id, category_id, religion_id, blood_group_id)
+                  VALUES (${schoolId}, ${person.id}, ${admissionNo.toString()}, ${normalizedPenNumber}, ${aparNumber}, ${village}, ${admissionDate}, ${statusId}, ${categoryId}, ${religionId}, ${bloodGroupId})
                   RETURNING id
                 `
               : await tx`
-                  INSERT INTO students (school_id, person_id, admission_no, apar_number, admission_date, status_id, category_id, religion_id, blood_group_id)
-                  VALUES (${schoolId}, ${person.id}, ${admissionNo.toString()}, ${aparNumber}, ${admissionDate}, ${statusId}, ${categoryId}, ${religionId}, ${bloodGroupId})
+                  INSERT INTO students (school_id, person_id, admission_no, apar_number, village, admission_date, status_id, category_id, religion_id, blood_group_id)
+                  VALUES (${schoolId}, ${person.id}, ${admissionNo.toString()}, ${aparNumber}, ${village}, ${admissionDate}, ${statusId}, ${categoryId}, ${religionId}, ${bloodGroupId})
                   RETURNING id
                 `;
 

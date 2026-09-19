@@ -51,55 +51,150 @@ router.get('/', verifySuperAdminMiddleware, async (req, res) => {
 
 // POST /api/super-admin/admins
 router.post('/', verifySuperAdminMiddleware, async (req, res) => {
+  let authId = null;
+  let isNewAuthUser = false;
+
   try {
     const { email, password, full_name } = req.body;
 
-    if (!email || !email.includes('@'))
-      return res.status(400).json({ error: 'Valid email is required' });
-    if (!password || password.length < 12)
-      return res.status(400).json({ error: 'Password must be at least 12 characters' });
-    if (!full_name || full_name.length < 2)
-      return res.status(400).json({ error: 'Full name must be at least 2 characters' });
+    const normEmail = String(email || '').trim().toLowerCase();
+    const trimmedName = String(full_name || '').trim();
 
-    // Create in Auth
+    if (!normEmail || !normEmail.includes('@')) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+    if (!password || String(password).length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+    if (!trimmedName || trimmedName.length < 2) {
+      return res.status(400).json({ error: 'Full name must be at least 2 characters' });
+    }
+
+    const isUuid = (str) =>
+      typeof str === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+    // Resolve creator ID: verify creator exists in super_admins table to respect FK constraint
+    let createdById = null;
+    if (req.superAdmin?.id && isUuid(req.superAdmin.id)) {
+      const [creatorRow] = await sql`
+        SELECT id FROM super_admins WHERE id = ${req.superAdmin.id} LIMIT 1
+      `;
+      if (creatorRow) {
+        createdById = creatorRow.id;
+      }
+    }
+
+    // Check if email already exists in super_admins
+    const [existingSa] = await sql`
+      SELECT id, is_active, full_name, email FROM super_admins
+      WHERE LOWER(TRIM(email)) = ${normEmail}
+      LIMIT 1
+    `;
+
+    if (existingSa) {
+      if (existingSa.is_active) {
+        return res.status(409).json({ error: 'A super admin with this email already exists' });
+      }
+
+      // Reactivate inactive super admin
+      try {
+        await schoolSupabaseAdmin.auth.admin.updateUserById(existingSa.id, {
+          password,
+          user_metadata: { full_name: trimmedName },
+        });
+      } catch (authUpdateErr) {
+        console.warn('[admins:post] Warning updating auth password for reactivated admin:', authUpdateErr.message);
+      }
+
+      const [reactivated] = await sql`
+        UPDATE super_admins
+        SET is_active = true,
+            full_name = ${trimmedName},
+            email = ${normEmail}
+        WHERE id = ${existingSa.id}
+        RETURNING id, email, full_name, is_active, created_at, last_login, created_by
+      `;
+      return sendResponse(res, 200, reactivated);
+    }
+
+    // Create or link in Auth
     const { data: authData, error: authError } = await schoolSupabaseAdmin.auth.admin.createUser({
-      email,
+      email: normEmail,
       password,
       email_confirm: true,
-      user_metadata: { full_name },
+      user_metadata: { full_name: trimmedName },
     });
 
     if (authError) {
-      if (
+      const isAlreadyExists =
         authError.status === 422 ||
-        authError.message.includes('already exists') ||
-        authError.code === 'email_exists'
-      ) {
-        return res.status(409).json({ error: 'Email already exists' });
+        (authError.message && authError.message.toLowerCase().includes('already')) ||
+        authError.code === 'email_exists';
+
+      if (isAlreadyExists) {
+        // Find existing user in auth.users
+        const [existingAuthUser] = await sql`
+          SELECT id, email FROM auth.users WHERE LOWER(TRIM(email)) = ${normEmail} LIMIT 1
+        `;
+
+        if (existingAuthUser) {
+          authId = existingAuthUser.id;
+          try {
+            await schoolSupabaseAdmin.auth.admin.updateUserById(authId, {
+              password,
+              user_metadata: { full_name: trimmedName },
+            });
+          } catch (updateErr) {
+            console.warn('[admins:post] Could not update auth user password:', updateErr.message);
+          }
+        } else {
+          return res.status(409).json({ error: 'Email already exists in authentication system' });
+        }
+      } else {
+        console.error('[admins:post] Auth createUser error:', authError);
+        return res.status(authError.status || 500).json({
+          error: authError.message || 'Failed to create user credentials',
+        });
       }
-      throw authError;
+    } else {
+      authId = authData.user.id;
+      isNewAuthUser = true;
     }
 
-    const authId = authData.user.id;
+    // Insert into super_admins table via direct SQL
+    try {
+      const [newAdmin] = await sql`
+        INSERT INTO super_admins (id, email, full_name, is_active, created_by, created_at)
+        VALUES (${authId}, ${normEmail}, ${trimmedName}, true, ${createdById}, NOW())
+        ON CONFLICT (id) DO UPDATE SET
+          email = EXCLUDED.email,
+          full_name = EXCLUDED.full_name,
+          is_active = true
+        RETURNING id, email, full_name, is_active, created_at, last_login, created_by
+      `;
 
-    // Insert into super_admins table
-    const { data: newAdmin, error: insertError } = await schoolSupabaseAdmin
-      .from('super_admins')
-      .insert({
-        id: authId,
-        email,
-        full_name,
-        created_by: req.superAdmin.id,
-      })
-      .select('id, email, full_name, is_active, created_at, last_login, created_by')
-      .single();
-
-    if (insertError) throw insertError;
-
-    return sendResponse(res, 201, newAdmin);
+      return sendResponse(res, 201, newAdmin);
+    } catch (insertError) {
+      // Roll back newly created auth user on DB insert failure
+      if (isNewAuthUser && authId) {
+        try {
+          await schoolSupabaseAdmin.auth.admin.deleteUser(authId);
+        } catch (cleanupErr) {
+          console.error('[admins:post] Failed to clean up newly created auth user:', cleanupErr.message);
+        }
+      }
+      console.error('[admins:post] Error inserting into super_admins:', insertError);
+      return res.status(500).json({ error: 'Failed to save super admin record' });
+    }
   } catch (err) {
     console.error('Error creating super admin:', err);
-    res.status(500).json({ error: 'Failed to create super admin' });
+    if (isNewAuthUser && authId) {
+      try {
+        await schoolSupabaseAdmin.auth.admin.deleteUser(authId);
+      } catch (_) {}
+    }
+    return res.status(500).json({ error: 'Failed to create super admin' });
   }
 });
 

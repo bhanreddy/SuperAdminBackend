@@ -17,6 +17,8 @@ const dcgdRouter = require('./superadmin/dcgdPrograms');
 const clustersRouter = require('./superadmin/clusters');
 const billingRouter = require('./superadmin/billing');
 const postersRouter = require('./superadmin/posters');
+const backupsRouter = require('./superadmin/backups');
+const sprintRouter = require('./superadmin/sprint');
 
 // Public (unauthenticated) routes
 const publicRouter = require('./public');
@@ -87,6 +89,12 @@ superAdmin.use('/billing', billingRouter);
 
 // Festival posters (upload + manage) under /posters/*
 superAdmin.use('/posters', postersRouter);
+
+// Database Backups Subsystem
+superAdmin.use('/backups', backupsRouter);
+
+// 11-Day Sprint Command Center
+superAdmin.use('/sprint', sprintRouter);
 
 router.use('/api/super-admin', superAdmin);
 

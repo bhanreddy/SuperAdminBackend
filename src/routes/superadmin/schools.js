@@ -350,6 +350,59 @@ router.post('/:id/first-admin', verifySuperAdminMiddleware, async (req, res) => 
         school_id: id, person_id: personId, contact_type: 'email', contact_value: canonicalEmail, is_primary: true
       });
 
+      // Manage Staff lists from the `staff` table — seed a staff row so the first
+      // admin is visible in the school app (person + user alone is not enough).
+      let { data: designation } = await client
+        .from('staff_designations')
+        .select('id')
+        .eq('school_id', id)
+        .eq('name', 'Administrator')
+        .maybeSingle();
+
+      if (!designation) {
+        const { data: createdDesignation, error: designationErr } = await client
+          .from('staff_designations')
+          .insert({ school_id: id, name: 'Administrator' })
+          .select('id')
+          .single();
+        if (designationErr) {
+          // Race / unique conflict: re-read, or fall back to Principal/Other.
+          const { data: existingAdminDesig } = await client
+            .from('staff_designations')
+            .select('id')
+            .eq('school_id', id)
+            .eq('name', 'Administrator')
+            .maybeSingle();
+          if (existingAdminDesig) {
+            designation = existingAdminDesig;
+          } else {
+            const { data: fallbackDesig } = await client
+              .from('staff_designations')
+              .select('id')
+              .eq('school_id', id)
+              .in('name', ['Principal', 'Other'])
+              .limit(1)
+              .maybeSingle();
+            designation = fallbackDesig || null;
+            if (!designation) throw designationErr;
+          }
+        } else {
+          designation = createdDesignation;
+        }
+      }
+
+      const staffCode = `ADM-${String(personId).replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+      const joiningDate = new Date().toISOString().slice(0, 10);
+      const { error: staffErr } = await client.from('staff').insert({
+        school_id: id,
+        person_id: personId,
+        staff_code: staffCode,
+        joining_date: joiningDate,
+        status_id: 1,
+        designation_id: designation.id,
+      });
+      if (staffErr) throw staffErr;
+
       // Insert User with temporary password flag
       const { error: uErr } = await client.from('users').insert({
         id: userId, school_id: id, person_id: personId, account_status: 'active', is_temporary_password: true
