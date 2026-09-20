@@ -2,7 +2,8 @@ const express = require('express');
 const sql = require('../../config/db');
 const { schoolSupabaseAdmin } = require('../../config/supabase');
 const { sendResponse } = require('../../utils/apiResponse');
-const { verifySuperAdminMiddleware } = require('../../middleware/verifySuperAdmin');
+const { authenticateUser, requirePermission, requireAnyPermission, requireSchoolAccess } = require('../../middleware/rbac');
+const { PERMISSIONS } = require('../../config/rbac');
 const {
   assertSchoolEmailAvailable,
   isSchoolEmailConflict,
@@ -35,7 +36,8 @@ async function findSchoolAndClient(id) {
 }
 
 // GET /api/super-admin/schools
-router.get('/', verifySuperAdminMiddleware, async (req, res) => {
+// Returns all schools for Founders/SchoolsReadAll; filters to assigned schools for executives
+router.get('/', authenticateUser, requireAnyPermission(PERMISSIONS.SCHOOLS_READ_ASSIGNED, PERMISSIONS.SCHOOLS_READ_ALL), async (req, res) => {
   try {
     const { data: clusters, error } = await schoolSupabaseAdmin.from('clusters').select('cluster_id').eq('status', 'active');
     if (error) throw error;
@@ -60,6 +62,13 @@ router.get('/', verifySuperAdminMiddleware, async (req, res) => {
       }
     }));
 
+    // RBAC: If not Founder or doesn't have schools.read.all, filter to assigned schools only
+    const isUnrestricted = req.user?.isFounder || req.user?.permissions?.includes(PERMISSIONS.SCHOOLS_READ_ALL);
+    if (!isUnrestricted) {
+      const assigned = req.user?.assignedSchoolIds || [];
+      allSchools = allSchools.filter((s) => assigned.includes(s.id));
+    }
+
     allSchools.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
 
     return res.status(200).json({ success: true, data: allSchools, cluster_unreachable: unreachable });
@@ -70,7 +79,8 @@ router.get('/', verifySuperAdminMiddleware, async (req, res) => {
 });
 
 // GET /api/super-admin/schools/:id
-router.get('/:id', verifySuperAdminMiddleware, async (req, res) => {
+// Protected by requireSchoolAccess: non-assigned users rejected with 403
+router.get('/:id', authenticateUser, requireAnyPermission(PERMISSIONS.SCHOOLS_READ_ASSIGNED, PERMISSIONS.SCHOOLS_READ_ALL), requireSchoolAccess('id'), async (req, res) => {
   try {
     const { id } = req.params;
     const { school } = await findSchoolAndClient(id);
@@ -86,7 +96,7 @@ router.get('/:id', verifySuperAdminMiddleware, async (req, res) => {
 });
 
 // GET /api/super-admin/schools/:id/health
-router.get('/:id/health', verifySuperAdminMiddleware, async (req, res) => {
+router.get('/:id/health', authenticateUser, requireAnyPermission(PERMISSIONS.SCHOOLS_READ_ASSIGNED, PERMISSIONS.SCHOOLS_READ_ALL), requireSchoolAccess('id'), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -123,9 +133,9 @@ router.get('/:id/health', verifySuperAdminMiddleware, async (req, res) => {
   }
 });
 
-
 // POST /api/super-admin/schools
-router.post('/', verifySuperAdminMiddleware, async (req, res) => {
+// Requires schools.create permission (Founders, Sales Managers, Sales Executives)
+router.post('/', authenticateUser, requirePermission(PERMISSIONS.SCHOOLS_CREATE), async (req, res) => {
   try {
     const { 
       name, code, address, logo_url, 
@@ -174,11 +184,20 @@ router.post('/', verifySuperAdminMiddleware, async (req, res) => {
       throw insErr;
     }
 
-    // 4. Increment school_count
+    // 4. Increment school_count in clusters table
     await schoolSupabaseAdmin
       .from('clusters')
       .update({ school_count: assigned.school_count + 1 })
       .eq('cluster_id', assigned.cluster_id);
+
+    // 5. Automatically assign this newly created school to the creator if creator is an executive
+    if (req.user && !req.user.isFounder) {
+      await sql`
+        INSERT INTO internal_user_schools (user_id, school_id, assigned_by)
+        VALUES (${req.user.id}, ${newSchool.id}, ${req.user.id})
+        ON CONFLICT DO NOTHING
+      `;
+    }
 
     return sendResponse(res, 201, newSchool);
   } catch (err) {
@@ -188,7 +207,8 @@ router.post('/', verifySuperAdminMiddleware, async (req, res) => {
 });
 
 // PATCH /api/super-admin/schools/:id
-router.patch('/:id', verifySuperAdminMiddleware, async (req, res) => {
+// Requires schools.update.assigned + school access
+router.patch('/:id', authenticateUser, requireAnyPermission(PERMISSIONS.SCHOOLS_UPDATE_ASSIGNED, PERMISSIONS.SCHOOLS_UPDATE_ALL), requireSchoolAccess('id'), async (req, res) => {
   try {
     const { id } = req.params;
     const { is_active } = req.body;
@@ -212,7 +232,8 @@ router.patch('/:id', verifySuperAdminMiddleware, async (req, res) => {
 });
 
 // PATCH /api/super-admin/schools/:school_id/app-config
-router.patch('/:school_id/app-config', verifySuperAdminMiddleware, async (req, res) => {
+// Requires configs.modify + school access
+router.patch('/:school_id/app-config', authenticateUser, requirePermission(PERMISSIONS.CONFIGS_MODIFY), requireSchoolAccess('school_id'), async (req, res) => {
   try {
     const { school_id } = req.params;
     const body = req.body || {};
@@ -279,7 +300,7 @@ router.patch('/:school_id/app-config', verifySuperAdminMiddleware, async (req, r
 });
 
 // POST /api/super-admin/schools/:id/seed-defaults
-router.post('/:id/seed-defaults', verifySuperAdminMiddleware, async (req, res) => {
+router.post('/:id/seed-defaults', authenticateUser, requirePermission(PERMISSIONS.CONFIGS_MODIFY), requireSchoolAccess('id'), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -297,7 +318,7 @@ router.post('/:id/seed-defaults', verifySuperAdminMiddleware, async (req, res) =
 });
 
 // POST /api/super-admin/schools/:id/first-admin
-router.post('/:id/first-admin', verifySuperAdminMiddleware, async (req, res) => {
+router.post('/:id/first-admin', authenticateUser, requirePermission(PERMISSIONS.CONFIGS_MODIFY), requireSchoolAccess('id'), async (req, res) => {
   try {
     const { id } = req.params;
     const { email, password, first_name, last_name, gender_id, dob } = req.body;
@@ -308,9 +329,7 @@ router.post('/:id/first-admin', verifySuperAdminMiddleware, async (req, res) => 
         .json({ error: 'All fields including gender and date of birth are required' });
     }
 
-    const canonicalEmail = await assertSchoolEmailAvailable(sql, id, email); // Wait, this uses sql, meaning global!
-    // we need to fix assertSchoolEmailAvailable to use targetClient too, or check via client.
-    // Let's implement inline check via client
+    const canonicalEmail = await assertSchoolEmailAvailable(sql, id, email);
     const { school, client } = await findSchoolAndClient(id);
     if (!school) return res.status(404).json({ error: 'School not found' });
 
@@ -419,9 +438,6 @@ router.post('/:id/first-admin', verifySuperAdminMiddleware, async (req, res) => 
       console.error('Error creating first admin in DB, rolling back Auth user:', dbError);
       await client.auth.admin.deleteUser(userId);
       if (dbError.code === '23505') {
-        console.warn('School-scoped email uniqueness violation', {
-          constraint: dbError.constraint || dbError.constraint_name || dbError.code,
-        });
         return res.status(409).json({ error: 'Email already registered in this school' });
       }
       return res
@@ -437,19 +453,16 @@ router.post('/:id/first-admin', verifySuperAdminMiddleware, async (req, res) => 
     });
   } catch (err) {
     if (err.code === 'SCHOOL_EMAIL_CONFLICT' || isSchoolEmailConflict(err)) {
-      console.warn('School-scoped email uniqueness violation', {
-        constraint: err.constraint || err.constraint_name || err.code,
-      });
       return res.status(409).json({ error: 'Email already registered in this school' });
     }
-
     console.error('Error creating first admin:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // DELETE /api/super-admin/schools/:id
-router.delete('/:id', verifySuperAdminMiddleware, async (req, res) => {
+// Requires schools.delete permission (Founders only)
+router.delete('/:id', authenticateUser, requirePermission(PERMISSIONS.SCHOOLS_DELETE), async (req, res) => {
   try {
     const schoolId = Number(req.params.id);
     if (!Number.isInteger(schoolId) || schoolId <= 0) {
@@ -492,7 +505,7 @@ router.delete('/:id', verifySuperAdminMiddleware, async (req, res) => {
 });
 
 // PATCH /api/super-admin/schools/:id/onboarding-status
-router.patch('/:id/onboarding-status', verifySuperAdminMiddleware, async (req, res) => {
+router.patch('/:id/onboarding-status', authenticateUser, requireAnyPermission(PERMISSIONS.SCHOOLS_UPDATE_ASSIGNED, PERMISSIONS.SCHOOLS_UPDATE_ALL), requireSchoolAccess('id'), async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -527,7 +540,7 @@ router.patch('/:id/onboarding-status', verifySuperAdminMiddleware, async (req, r
 });
 
 // GET /api/super-admin/schools/:id/build-config
-router.get('/:id/build-config', verifySuperAdminMiddleware, async (req, res) => {
+router.get('/:id/build-config', authenticateUser, requirePermission(PERMISSIONS.BUILDS_READ), requireSchoolAccess('id'), async (req, res) => {
   try {
     const { id } = req.params;
     

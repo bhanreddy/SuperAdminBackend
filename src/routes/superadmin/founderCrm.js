@@ -757,16 +757,20 @@ router.get('/audit-logs', async (req, res) => {
   try {
     const { entity_type, action } = req.query;
 
-    let entityFilter = sql``;
-    if (entity_type && entity_type !== 'ALL') entityFilter = sql`AND entity_type = ${entity_type}`;
-
-    let actionFilter = sql``;
-    if (action && action !== 'ALL') actionFilter = sql`AND action = ${action}`;
-
     const rows = await sql`
+      WITH combined_logs AS (
+        SELECT id, entity_type, action, actor_id, metadata, created_at
+        FROM activity_logs
+        UNION ALL
+        SELECT id, COALESCE(entity, 'SYSTEM') AS entity_type, action,
+               user_id AS actor_id, details AS metadata, created_at
+        FROM audit_logs
+      )
       SELECT id, entity_type, action, actor_id, metadata, created_at
-      FROM activity_logs
-      WHERE TRUE ${entityFilter} ${actionFilter}
+      FROM combined_logs
+      WHERE TRUE
+        ${entity_type && entity_type !== 'ALL' ? sql`AND entity_type = ${entity_type}` : sql``}
+        ${action && action !== 'ALL' ? sql`AND action = ${action}` : sql``}
       ORDER BY created_at DESC LIMIT 300
     `;
     return sendResponse(res, 200, rows);

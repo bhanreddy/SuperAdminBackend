@@ -20,6 +20,10 @@ const postersRouter = require('./superadmin/posters');
 const backupsRouter = require('./superadmin/backups');
 const sprintRouter = require('./superadmin/sprint');
 const payrollRouter = require('./superadmin/payroll');
+const usersRouter = require('./superadmin/users');
+const requirementsRouter = require('./superadmin/requirements');
+const checklistRouter = require('./superadmin/checklist');
+const supportRouter = require('./superadmin/support');
 
 // Public (unauthenticated) routes
 const publicRouter = require('./public');
@@ -99,6 +103,19 @@ superAdmin.use('/backups', backupsRouter);
 
 // 11-Day Sprint Command Center
 superAdmin.use('/sprint', sprintRouter);
+
+// Internal Team & RBAC User Management
+superAdmin.use('/users', usersRouter);
+
+// School Requirements
+superAdmin.use('/requirements', requirementsRouter);
+
+// School Onboarding & Launch Checklist
+superAdmin.use('/checklist', checklistRouter);
+superAdmin.use('/schools', checklistRouter);
+
+// Support & Complaints Command Center
+superAdmin.use('/support', supportRouter);
 
 router.use('/api/super-admin', superAdmin);
 

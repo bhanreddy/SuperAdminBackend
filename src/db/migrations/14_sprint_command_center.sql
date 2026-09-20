@@ -1,5 +1,5 @@
 -- 12_sprint_command_center.sql
--- Relational schema for the 11-Day Sprint Command Center (100 Mission-Critical Deliverables)
+-- Relational schema for the 10-Day RED ALERT Command Center (100 hard deliverables)
 
 CREATE TABLE IF NOT EXISTS sprint_days (
   day INT PRIMARY KEY,
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS sprint_days (
 
 CREATE TABLE IF NOT EXISTS sprint_tasks (
   id VARCHAR(32) PRIMARY KEY,
-  role VARCHAR(16) NOT NULL CHECK (role IN ('tech', 'acad', 'content', 'sales')),
+  role VARCHAR(16) NOT NULL CHECK (role IN ('tech', 'curr', 'sales', 'scale')),
   num INT NOT NULL,
   title TEXT NOT NULL,
   day INT NOT NULL REFERENCES sprint_days(day),

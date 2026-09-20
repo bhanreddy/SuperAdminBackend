@@ -1,11 +1,15 @@
 {
   "name": "superadmin-backend",
   "version": "1.0.0",
-  "description": "Dedicated backend for the SuperAdmin Expo app — consolidates all super-admin and medical provisioning routes.",
+  "description": "Dedicated backend for the SuperAdmin Expo app \u2014 consolidates all super-admin and medical provisioning routes.",
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "migrate:rbac": "node src/db/run-migrations.js",
+    "test:rbac": "node test-rbac.js",
+    "test:sprint": "node --test tests/sprint-definition.test.cjs",
+    "test:checklist": "npm --prefix ../SuperAdminFrontend run test:checklist"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",

@@ -26,6 +26,7 @@ const config = {
     url: required('SCHOOL_SUPABASE_URL'),
     anonKey: required('SCHOOL_SUPABASE_ANON_KEY'),
     serviceRoleKey: required('SCHOOL_SUPABASE_SERVICE_ROLE_KEY'),
+    jwtSecret: optional('SCHOOL_SUPABASE_JWT_SECRET', ''),
   },
 
   // School Postgres direct connection (for raw SQL on school tables)

@@ -3,7 +3,8 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 const sql = require('../../config/db');
 const { sendResponse } = require('../../utils/apiResponse');
-const { verifySuperAdminMiddleware } = require('../../middleware/verifySuperAdmin');
+const { authenticateUser, requireSchoolAccess, requirePermission } = require('../../middleware/rbac');
+const { PERMISSIONS } = require('../../config/rbac');
 const { schoolSupabaseAdmin } = require('../../config/supabase');
 const { assertSchoolEmailAvailable } = require('../../utils/schoolEmail');
 const { validatePenNumber, assertPenNumberAvailable, isPenConflict } = require('../../utils/studentPen');
@@ -128,7 +129,9 @@ async function getSchoolAuthAdminClient(schoolId) {
 // POST /api/super-admin/schools/:id/students/import
 router.post(
   '/schools/:id/students/import',
-  verifySuperAdminMiddleware,
+  authenticateUser,
+  requirePermission(PERMISSIONS.STUDENTS_IMPORT),
+  requireSchoolAccess('id'),
   upload.single('file'),
   async (req, res) => {
     try {

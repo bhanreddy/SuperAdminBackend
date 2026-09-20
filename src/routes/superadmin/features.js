@@ -1,7 +1,8 @@
 const express = require('express');
 const sql = require('../../config/db');
 const { sendResponse, sendError } = require('../../utils/apiResponse');
-const { verifySuperAdminMiddleware } = require('../../middleware/verifySuperAdmin');
+const { authenticateUser, requirePermission, requireSchoolAccess } = require('../../middleware/rbac');
+const { PERMISSIONS } = require('../../config/rbac');
 const { getFeature, resolveCatalog, STUDENT_ROLE } = require('../../config/featureRegistry');
 
 const router = express.Router();
@@ -51,7 +52,7 @@ async function checkCanWrite(actorId, actorEmail) {
  * Full catalog + effective state + default/overridden source for one school.
  * schoolId is admin-scoped (from the URL, under super-admin auth) — not a student JWT.
  */
-router.get('/:schoolId/features', verifySuperAdminMiddleware, async (req, res) => {
+router.get('/:schoolId/features', authenticateUser, requirePermission(PERMISSIONS.CONFIGS_READ), requireSchoolAccess('schoolId'), async (req, res) => {
   try {
     const schoolId = Number(req.params.schoolId);
     if (!Number.isInteger(schoolId) || schoolId <= 0) {
@@ -74,7 +75,7 @@ router.get('/:schoolId/features', verifySuperAdminMiddleware, async (req, res) =
  * Body: { enabled: boolean }. Validates key, rejects non-toggleable keys,
  * writes an audit record (old -> new) BEFORE upserting the override row.
  */
-router.put('/:schoolId/features/:featureKey', verifySuperAdminMiddleware, async (req, res) => {
+router.put('/:schoolId/features/:featureKey', authenticateUser, requirePermission(PERMISSIONS.CONFIGS_MODIFY), requireSchoolAccess('schoolId'), async (req, res) => {
   try {
     const schoolId = Number(req.params.schoolId);
     const { featureKey } = req.params;
@@ -151,7 +152,7 @@ router.put('/:schoolId/features/:featureKey', verifySuperAdminMiddleware, async 
  * Reset a flag to its registry default by removing the override row.
  * Audits (old effective -> registry default) BEFORE the delete.
  */
-router.delete('/:schoolId/features/:featureKey', verifySuperAdminMiddleware, async (req, res) => {
+router.delete('/:schoolId/features/:featureKey', authenticateUser, requirePermission(PERMISSIONS.CONFIGS_MODIFY), requireSchoolAccess('schoolId'), async (req, res) => {
   try {
     const schoolId = Number(req.params.schoolId);
     const { featureKey } = req.params;

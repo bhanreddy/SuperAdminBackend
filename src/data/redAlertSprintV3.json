@@ -1,0 +1,931 @@
+{
+  "version": "red-alert-v3",
+  "name": "NexSyrus RED ALERT",
+  "duration_days": 10,
+  "total_deliverables": 100,
+  "operating_rule": "Research is not browsing. Sales is not calling. Tech is not planning. Every task must end in an artifact, validated decision, logged activity, working build, or measurable result.",
+  "roles": {
+    "tech": {
+      "name": "Member 1 — Tech Lead",
+      "subtitle": "Cross-functional technical strike force",
+      "category": "Curriculum + Sales Technical"
+    },
+    "curr": {
+      "name": "Member 2 — Curriculum Research Lead",
+      "subtitle": "Academic architecture, validation, evidence",
+      "category": "Curriculum Research"
+    },
+    "sales": {
+      "name": "Member 3 — Sales Strategy & Field Lead",
+      "subtitle": "Pipeline, positioning, demos, commercial execution",
+      "category": "Sales & Strategy"
+    },
+    "scale": {
+      "name": "Member 4 — Sales Scale & Hiring Lead",
+      "subtitle": "Brochure, hiring, training, enablement, operations",
+      "category": "Sales & Strategy"
+    }
+  },
+  "tasks": [
+    {
+      "id": "red-v3-tech-1",
+      "role": "tech",
+      "num": 1,
+      "day": 1,
+      "title": "Audit current SchoolIMS architecture and produce a curriculum/sales technical dependency map.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 1"
+    },
+    {
+      "id": "red-v3-tech-2",
+      "role": "tech",
+      "num": 2,
+      "day": 1,
+      "title": "Freeze the 10-day technical scope: what will be built, prototyped, mocked, or explicitly deferred.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 1"
+    },
+    {
+      "id": "red-v3-tech-3",
+      "role": "tech",
+      "num": 3,
+      "day": 1,
+      "title": "Define the curriculum domain model: academic year, term, grade, subject, unit, chapter, lesson, objective, competency, activity, assessment, resource.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 1"
+    },
+    {
+      "id": "red-v3-tech-4",
+      "role": "tech",
+      "num": 4,
+      "day": 2,
+      "title": "Design Supabase/Postgres schema extensions for curriculum with school_id isolation and migration safety.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 2"
+    },
+    {
+      "id": "red-v3-tech-5",
+      "role": "tech",
+      "num": 5,
+      "day": 2,
+      "title": "Design curriculum versioning, draft-review-publish, rollback, and school-specific override model.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 2"
+    },
+    {
+      "id": "red-v3-tech-6",
+      "role": "tech",
+      "num": 6,
+      "day": 2,
+      "title": "Define RBAC for management, staff, student, parent, curriculum reviewer, and future content-author roles.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 2"
+    },
+    {
+      "id": "red-v3-tech-7",
+      "role": "tech",
+      "num": 7,
+      "day": 3,
+      "title": "Write API contracts for curriculum hierarchy, lesson plans, outcomes, assessments, resources, progress, and publishing.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 3"
+    },
+    {
+      "id": "red-v3-tech-8",
+      "role": "tech",
+      "num": 8,
+      "day": 3,
+      "title": "Design offline-first read/cache/sync behavior for low-network schools, including conflict and stale-content rules.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 3"
+    },
+    {
+      "id": "red-v3-tech-9",
+      "role": "tech",
+      "num": 9,
+      "day": 3,
+      "title": "Build a reusable curriculum seed/import pipeline so research outputs can become structured application data.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 3"
+    },
+    {
+      "id": "red-v3-tech-10",
+      "role": "tech",
+      "num": 10,
+      "day": 4,
+      "title": "Prototype the staff Academic Plan + Curriculum workspace connected to real data contracts.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 4"
+    },
+    {
+      "id": "red-v3-tech-11",
+      "role": "tech",
+      "num": 11,
+      "day": 4,
+      "title": "Prototype the student learning journey: today’s lesson, resources, practice, mastery, remediation, and progress.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 4"
+    },
+    {
+      "id": "red-v3-tech-12",
+      "role": "tech",
+      "num": 12,
+      "day": 4,
+      "title": "Prototype the management curriculum dashboard: coverage, pacing, teacher completion, mastery gaps, and exceptions.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 4"
+    },
+    {
+      "id": "red-v3-tech-13",
+      "role": "tech",
+      "num": 13,
+      "day": 5,
+      "title": "Implement/validate assessment data flow from question/assessment definition to student result and mastery evidence.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 5"
+    },
+    {
+      "id": "red-v3-tech-14",
+      "role": "tech",
+      "num": 14,
+      "day": 5,
+      "title": "Implement the first deterministic remediation/recommendation rules using mastery thresholds and prerequisite gaps.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 5"
+    },
+    {
+      "id": "red-v3-tech-15",
+      "role": "tech",
+      "num": 15,
+      "day": 5,
+      "title": "Design content asset storage, metadata, compression, caching, and access rules for PDFs, images, worksheets, and video.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 5"
+    },
+    {
+      "id": "red-v3-tech-16",
+      "role": "tech",
+      "num": 16,
+      "day": 6,
+      "title": "Instrument curriculum analytics/events: lesson opened, resource used, assessment attempted, mastery changed, plan delayed.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 6"
+    },
+    {
+      "id": "red-v3-tech-17",
+      "role": "tech",
+      "num": 17,
+      "day": 6,
+      "title": "Create a staging curriculum demo dataset for one school, two grades, two subjects, and one complete unit.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 6"
+    },
+    {
+      "id": "red-v3-tech-18",
+      "role": "tech",
+      "num": 18,
+      "day": 6,
+      "title": "Build a principal-ready demo environment that cannot expose another school’s data or unstable internal screens.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 6"
+    },
+    {
+      "id": "red-v3-tech-19",
+      "role": "tech",
+      "num": 19,
+      "day": 7,
+      "title": "Create the sales CRM technical foundation: lead stages, activities, next action, owner, territory, source, demo, proposal, outcome.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 7"
+    },
+    {
+      "id": "red-v3-tech-20",
+      "role": "tech",
+      "num": 20,
+      "day": 7,
+      "title": "Build lead import, normalization, duplicate detection, and decision-maker/contact fields for bulk school prospecting.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 7"
+    },
+    {
+      "id": "red-v3-tech-21",
+      "role": "tech",
+      "num": 21,
+      "day": 8,
+      "title": "Build Founder Sales Command dashboard: new leads, contacts, qualified, demos, proposals, pilots, wins/losses, aging, follow-up breaches.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 8"
+    },
+    {
+      "id": "red-v3-tech-22",
+      "role": "tech",
+      "num": 22,
+      "day": 8,
+      "title": "Implement trackable brochure/demo QR links with source/campaign attribution and school/territory tagging.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 8"
+    },
+    {
+      "id": "red-v3-tech-23",
+      "role": "tech",
+      "num": 23,
+      "day": 8,
+      "title": "Create structured field-feedback capture that routes feature requests, objections, and curriculum findings to the correct backlog.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 8"
+    },
+    {
+      "id": "red-v3-tech-24",
+      "role": "tech",
+      "num": 24,
+      "day": 9,
+      "title": "Run security, tenant-isolation, permission, data-integrity, offline, and demo reliability tests; fix every P0/P1 defect.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 9"
+    },
+    {
+      "id": "red-v3-tech-25",
+      "role": "tech",
+      "num": 25,
+      "day": 10,
+      "title": "Deploy the red-alert staging release, verify backups/monitoring/logging, and publish the technical handover + 30-day build backlog.",
+      "category": "Curriculum + Sales Technical",
+      "orig_day_label": "Day 10"
+    },
+    {
+      "id": "red-v3-curr-1",
+      "role": "curr",
+      "num": 1,
+      "day": 1,
+      "title": "Write the one-page NexSyrus Curriculum doctrine: what learning problem we solve, for whom, and what we refuse to become.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 1"
+    },
+    {
+      "id": "red-v3-curr-2",
+      "role": "curr",
+      "num": 2,
+      "day": 1,
+      "title": "Freeze the pilot: exact board/context, two grades, two subjects, one term, target school type, and non-goals.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 1"
+    },
+    {
+      "id": "red-v3-curr-3",
+      "role": "curr",
+      "num": 3,
+      "day": 1,
+      "title": "Build a 50-question research instrument covering principal pain, teacher workload, classroom reality, assessment, parent pressure, and learning gaps.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 1"
+    },
+    {
+      "id": "red-v3-curr-4",
+      "role": "curr",
+      "num": 4,
+      "day": 2,
+      "title": "Map official learning expectations for the pilot grades/subjects and create a standards evidence file with source references.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 2"
+    },
+    {
+      "id": "red-v3-curr-5",
+      "role": "curr",
+      "num": 5,
+      "day": 2,
+      "title": "Teardown at least 10 curriculum/LMS/content competitors across philosophy, structure, teacher workflow, assessment, analytics, and implementation.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 2"
+    },
+    {
+      "id": "red-v3-curr-6",
+      "role": "curr",
+      "num": 6,
+      "day": 2,
+      "title": "Conduct at least 8 structured interviews with principals/teachers and convert every interview into problem-frequency-severity evidence.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 2"
+    },
+    {
+      "id": "red-v3-curr-7",
+      "role": "curr",
+      "num": 7,
+      "day": 3,
+      "title": "Design the NexSyrus academic hierarchy and terminology guide that every future product/content person must follow.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 3"
+    },
+    {
+      "id": "red-v3-curr-8",
+      "role": "curr",
+      "num": 8,
+      "day": 3,
+      "title": "Define competency taxonomy and observable mastery evidence for the pilot subjects.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 3"
+    },
+    {
+      "id": "red-v3-curr-9",
+      "role": "curr",
+      "num": 9,
+      "day": 3,
+      "title": "Create prerequisite/progression maps showing what learners must know before, during, and after each pilot unit.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 3"
+    },
+    {
+      "id": "red-v3-curr-10",
+      "role": "curr",
+      "num": 10,
+      "day": 4,
+      "title": "Design the standard 40-minute classroom lesson model with minute-level teacher actions, student actions, resources, and checks.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 4"
+    },
+    {
+      "id": "red-v3-curr-11",
+      "role": "curr",
+      "num": 11,
+      "day": 4,
+      "title": "Create the full assessment architecture: diagnostic, formative, practice, exit ticket, chapter/unit, term, rubric, and re-test.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 4"
+    },
+    {
+      "id": "red-v3-curr-12",
+      "role": "curr",
+      "num": 12,
+      "day": 4,
+      "title": "Design the misconception library format: misconception, evidence signal, likely cause, teacher action, student activity, re-check.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 4"
+    },
+    {
+      "id": "red-v3-curr-13",
+      "role": "curr",
+      "num": 13,
+      "day": 5,
+      "title": "Build one gold-standard complete unit: objectives, lessons, activities, worksheet, assessment, rubric, remediation, extension, teacher guide.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 5"
+    },
+    {
+      "id": "red-v3-curr-14",
+      "role": "curr",
+      "num": 14,
+      "day": 5,
+      "title": "Test that unit with at least 5 teachers; measure prep time, confusion points, feasibility, and perceived workload reduction.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 5"
+    },
+    {
+      "id": "red-v3-curr-15",
+      "role": "curr",
+      "num": 15,
+      "day": 5,
+      "title": "Produce a ranked list of the top 30 teacher-workload problems and exactly how curriculum + SchoolIMS should remove or reduce them.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 5"
+    },
+    {
+      "id": "red-v3-curr-16",
+      "role": "curr",
+      "num": 16,
+      "day": 6,
+      "title": "Create Curriculum Authoring SOP: research → outline → write → academic review → classroom test → revision → publish → version.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 6"
+    },
+    {
+      "id": "red-v3-curr-17",
+      "role": "curr",
+      "num": 17,
+      "day": 6,
+      "title": "Create a hard QA rubric for accuracy, age fit, cognitive load, clarity, classroom feasibility, inclusivity, assessment alignment, and evidence.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 6"
+    },
+    {
+      "id": "red-v3-curr-18",
+      "role": "curr",
+      "num": 18,
+      "day": 6,
+      "title": "Define three learner pathways—support, core, advanced—with objective triggers and teacher interventions.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 6"
+    },
+    {
+      "id": "red-v3-curr-19",
+      "role": "curr",
+      "num": 19,
+      "day": 7,
+      "title": "Create annual → term → month → week → lesson pacing architecture, including holidays, exams, revision, backlog, and recovery.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 7"
+    },
+    {
+      "id": "red-v3-curr-20",
+      "role": "curr",
+      "num": 20,
+      "day": 7,
+      "title": "Design teacher planning workflow that can be completed in 15 minutes per week using the curriculum system.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 7"
+    },
+    {
+      "id": "red-v3-curr-21",
+      "role": "curr",
+      "num": 21,
+      "day": 8,
+      "title": "Define parent academic visibility: what parents see weekly/monthly, what they should not see, and how to avoid data overload.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 8"
+    },
+    {
+      "id": "red-v3-curr-22",
+      "role": "curr",
+      "num": 22,
+      "day": 8,
+      "title": "Create 12 defensible curriculum USPs with proof mechanism, school outcome, teacher outcome, and demo evidence for each.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 8"
+    },
+    {
+      "id": "red-v3-curr-23",
+      "role": "curr",
+      "num": 23,
+      "day": 9,
+      "title": "Write Curriculum Framework v0.9: philosophy, hierarchy, outcomes, pedagogy, assessment, remediation, planning, QA, governance, feedback loop.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 9"
+    },
+    {
+      "id": "red-v3-curr-24",
+      "role": "curr",
+      "num": 24,
+      "day": 9,
+      "title": "Run a hostile review: list 30 reasons a principal/teacher could reject NexSyrus Curriculum and redesign the framework against the strongest objections.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 9"
+    },
+    {
+      "id": "red-v3-curr-25",
+      "role": "curr",
+      "num": 25,
+      "day": 10,
+      "title": "Freeze Curriculum Framework v1.0 + pilot research report + unresolved assumptions register + 30-day validation roadmap.",
+      "category": "Curriculum Research",
+      "orig_day_label": "Day 10"
+    },
+    {
+      "id": "red-v3-sales-1",
+      "role": "sales",
+      "num": 1,
+      "day": 1,
+      "title": "Define the exact ICP using school size, fee band, geography, decision structure, current ERP state, pain signals, and disqualifiers.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 1"
+    },
+    {
+      "id": "red-v3-sales-2",
+      "role": "sales",
+      "num": 2,
+      "day": 1,
+      "title": "Rank first-wave Telangana territories using school density, accessibility, travel efficiency, network strength, and conversion practicality.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 1"
+    },
+    {
+      "id": "red-v3-sales-3",
+      "role": "sales",
+      "num": 3,
+      "day": 1,
+      "title": "Build and clean a minimum 150-school prospect database with school, location, phone, decision-maker status, source, and priority.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 1"
+    },
+    {
+      "id": "red-v3-sales-4",
+      "role": "sales",
+      "num": 4,
+      "day": 2,
+      "title": "Identify at least 60 principal/owner/management decision-makers and create contact paths for each.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 2"
+    },
+    {
+      "id": "red-v3-sales-5",
+      "role": "sales",
+      "num": 5,
+      "day": 2,
+      "title": "Complete a commercial teardown of 12 ERP/curriculum competitors: positioning, pricing signals, packaging, proof, onboarding, and weaknesses.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 2"
+    },
+    {
+      "id": "red-v3-sales-6",
+      "role": "sales",
+      "num": 6,
+      "day": 2,
+      "title": "Run 15 discovery calls/interviews and capture the exact words schools use for pain, objections, buying triggers, and current workarounds.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 2"
+    },
+    {
+      "id": "red-v3-sales-7",
+      "role": "sales",
+      "num": 7,
+      "day": 3,
+      "title": "Build the 30-second, 2-minute, and 10-minute SchoolIMS + Curriculum pitch without feature dumping.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 3"
+    },
+    {
+      "id": "red-v3-sales-8",
+      "role": "sales",
+      "num": 8,
+      "day": 3,
+      "title": "Create the principal discovery framework: 20 questions, qualification rules, urgency signals, authority, budget signal, and next-step criteria.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 3"
+    },
+    {
+      "id": "red-v3-sales-9",
+      "role": "sales",
+      "num": 9,
+      "day": 3,
+      "title": "Create four commercial packages/hypotheses: SchoolIMS, Curriculum, Combined, and Pilot—with clear boundaries and upgrade logic.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 3"
+    },
+    {
+      "id": "red-v3-sales-10",
+      "role": "sales",
+      "num": 10,
+      "day": 4,
+      "title": "Create a 30-objection battlebook covering price, existing ERP, teacher resistance, internet, parents, migration, support, security, and trust.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 4"
+    },
+    {
+      "id": "red-v3-sales-11",
+      "role": "sales",
+      "num": 11,
+      "day": 4,
+      "title": "Write Telugu + English outreach scripts for cold call, WhatsApp, referral introduction, revisit, and post-demo follow-up.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 4"
+    },
+    {
+      "id": "red-v3-sales-12",
+      "role": "sales",
+      "num": 12,
+      "day": 4,
+      "title": "Create the 20-minute live-demo narrative: problem → workflow → proof → curriculum → management visibility → commercial next step.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 4"
+    },
+    {
+      "id": "red-v3-sales-13",
+      "role": "sales",
+      "num": 13,
+      "day": 5,
+      "title": "Contact at least 50 qualified schools and log every outcome; no untracked calls or WhatsApp activity.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 5"
+    },
+    {
+      "id": "red-v3-sales-14",
+      "role": "sales",
+      "num": 14,
+      "day": 5,
+      "title": "Secure at least 8 decision-maker meetings/demos or produce a written root-cause analysis for the gap.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 5"
+    },
+    {
+      "id": "red-v3-sales-15",
+      "role": "sales",
+      "num": 15,
+      "day": 5,
+      "title": "Complete 5 deep principal meetings and create structured meeting notes, objections, buying signal, and next-action date.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 5"
+    },
+    {
+      "id": "red-v3-sales-16",
+      "role": "sales",
+      "num": 16,
+      "day": 6,
+      "title": "Create proposal v1 with problem statement, solution scope, rollout, training, responsibilities, commercials, timeline, and assumptions.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 6"
+    },
+    {
+      "id": "red-v3-sales-17",
+      "role": "sales",
+      "num": 17,
+      "day": 6,
+      "title": "Create pilot offer/MOU structure with duration, school responsibilities, success metrics, review point, and conversion path.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 6"
+    },
+    {
+      "id": "red-v3-sales-18",
+      "role": "sales",
+      "num": 18,
+      "day": 6,
+      "title": "Build five follow-up sequences: new lead, qualified-no-demo, demo-no-decision, proposal, dormant/revival.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 6"
+    },
+    {
+      "id": "red-v3-sales-19",
+      "role": "sales",
+      "num": 19,
+      "day": 7,
+      "title": "Deliver at least 5 complete demos; record where attention drops, which modules trigger interest, and which objections repeat.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 7"
+    },
+    {
+      "id": "red-v3-sales-20",
+      "role": "sales",
+      "num": 20,
+      "day": 7,
+      "title": "Create lost-deal/rejection taxonomy and classify every negative response instead of writing 'not interested'.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 7"
+    },
+    {
+      "id": "red-v3-sales-21",
+      "role": "sales",
+      "num": 21,
+      "day": 8,
+      "title": "Expand pipeline to 200 qualified school records and at least 75 identified decision-makers.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 8"
+    },
+    {
+      "id": "red-v3-sales-22",
+      "role": "sales",
+      "num": 22,
+      "day": 8,
+      "title": "Create 4-week district visit clusters so every field day targets multiple nearby schools instead of single-school travel.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 8"
+    },
+    {
+      "id": "red-v3-sales-23",
+      "role": "sales",
+      "num": 23,
+      "day": 9,
+      "title": "Run 30 structured follow-ups on warm prospects and force one next action: meeting, demo, proposal, pilot, nurture date, or lost reason.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 9"
+    },
+    {
+      "id": "red-v3-sales-24",
+      "role": "sales",
+      "num": 24,
+      "day": 9,
+      "title": "Produce factual pipeline forecast by stage and age—without optimistic counting—and identify the 10 deals requiring founder intervention.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 9"
+    },
+    {
+      "id": "red-v3-sales-25",
+      "role": "sales",
+      "num": 25,
+      "day": 10,
+      "title": "Freeze Sales Playbook v1 + 30-day attack plan with territory, activity, meetings, demos, proposals, pilots, and conversion review cadence.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 10"
+    },
+    {
+      "id": "red-v3-scale-1",
+      "role": "scale",
+      "num": 1,
+      "day": 1,
+      "title": "Write a field-sales role scorecard based on 30/60/90-day outcomes, not generic responsibilities.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 1"
+    },
+    {
+      "id": "red-v3-scale-2",
+      "role": "scale",
+      "num": 2,
+      "day": 1,
+      "title": "Create the Indeed-ready JD plus alternate versions for LinkedIn, local job groups, referrals, and campus placement cells.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 1"
+    },
+    {
+      "id": "red-v3-scale-3",
+      "role": "scale",
+      "num": 3,
+      "day": 1,
+      "title": "Design the complete hiring funnel: application → phone screen → aptitude → role-play → field scenario → founder → verification → offer.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 1"
+    },
+    {
+      "id": "red-v3-scale-4",
+      "role": "scale",
+      "num": 4,
+      "day": 2,
+      "title": "Build a weighted interview scorecard for communication, persistence, travel readiness, learning speed, discipline, integrity, local network, and digital comfort.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 2"
+    },
+    {
+      "id": "red-v3-scale-5",
+      "role": "scale",
+      "num": 5,
+      "day": 2,
+      "title": "Create a 50-question interview bank plus 15 red-flag probes and clear pass/fail evidence for each stage.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 2"
+    },
+    {
+      "id": "red-v3-scale-6",
+      "role": "scale",
+      "num": 6,
+      "day": 2,
+      "title": "Build the candidate tracker with source, district, stage, score, salary, notice period, travel readiness, rejection reason, and owner.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 2"
+    },
+    {
+      "id": "red-v3-scale-7",
+      "role": "scale",
+      "num": 7,
+      "day": 3,
+      "title": "Launch sourcing and generate at least 75 relevant candidate leads/applications across platforms, referrals, campuses, and local networks.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 3"
+    },
+    {
+      "id": "red-v3-scale-8",
+      "role": "scale",
+      "num": 8,
+      "day": 3,
+      "title": "Complete at least 20 structured phone screens and reject weak candidates early instead of carrying them forward.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 3"
+    },
+    {
+      "id": "red-v3-scale-9",
+      "role": "scale",
+      "num": 9,
+      "day": 3,
+      "title": "Run at least 8 principal-selling role plays with hard objections, local-language switching, and meeting-closing scenarios.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 3"
+    },
+    {
+      "id": "red-v3-scale-10",
+      "role": "scale",
+      "num": 10,
+      "day": 4,
+      "title": "Design the 5-day Sales Bootcamp: company, school market, SchoolIMS, curriculum, discovery, demo, objection handling, CRM, field discipline.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 4"
+    },
+    {
+      "id": "red-v3-scale-11",
+      "role": "scale",
+      "num": 11,
+      "day": 4,
+      "title": "Build the salesperson certification exam: product, pitch, objection, demo, CRM, field plan, ethics, and role-play minimum standards.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 4"
+    },
+    {
+      "id": "red-v3-scale-12",
+      "role": "scale",
+      "num": 12,
+      "day": 4,
+      "title": "Create the 'DO NOT SAY / DO NOT DO' field guide covering fake promises, technical jargon, instant discounting, feature dumping, and unlogged follow-up.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 4"
+    },
+    {
+      "id": "red-v3-scale-13",
+      "role": "scale",
+      "num": 13,
+      "day": 5,
+      "title": "Own the 2-page brochure production: hierarchy, copy placement, screenshots/visual proof, curriculum story, trust elements, CTA, and QR handoff.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 5"
+    },
+    {
+      "id": "red-v3-scale-14",
+      "role": "scale",
+      "num": 14,
+      "day": 5,
+      "title": "Produce brochure v1 print proof and run a 5-person comprehension test: what they understand in 30 seconds and what confuses them.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 5"
+    },
+    {
+      "id": "red-v3-scale-15",
+      "role": "scale",
+      "num": 15,
+      "day": 5,
+      "title": "Create salesperson training workbook with personas, discovery sheet, demo checklist, objection drills, field planner, and daily review sheet.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 5"
+    },
+    {
+      "id": "red-v3-scale-16",
+      "role": "scale",
+      "num": 16,
+      "day": 6,
+      "title": "Design future 15-person Telangana territory model: district ownership, travel radius, school universe, backup coverage, and escalation path.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 6"
+    },
+    {
+      "id": "red-v3-scale-17",
+      "role": "scale",
+      "num": 17,
+      "day": 6,
+      "title": "Create daily/weekly salesperson KPI system: attempts, conversations, decision-makers, meetings, demos, proposals, follow-ups, referrals, conversion.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 6"
+    },
+    {
+      "id": "red-v3-scale-18",
+      "role": "scale",
+      "num": 18,
+      "day": 6,
+      "title": "Design incentive/recognition principles tied to quality outcomes and collections—not just raw lead counts.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 6"
+    },
+    {
+      "id": "red-v3-scale-19",
+      "role": "scale",
+      "num": 19,
+      "day": 7,
+      "title": "Run two internal bootcamp simulations and score every participant using the same future-hire certification standard.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 7"
+    },
+    {
+      "id": "red-v3-scale-20",
+      "role": "scale",
+      "num": 20,
+      "day": 7,
+      "title": "Create manager coaching system: call review, demo review, ride-along checklist, objection clinic, pipeline review, corrective action.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 7"
+    },
+    {
+      "id": "red-v3-scale-21",
+      "role": "scale",
+      "num": 21,
+      "day": 8,
+      "title": "Produce a shortlist of hireable candidates with evidence, risks, compensation expectation, territory fit, and training gaps.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 8"
+    },
+    {
+      "id": "red-v3-scale-22",
+      "role": "scale",
+      "num": 22,
+      "day": 8,
+      "title": "Create 30-day new-salesperson onboarding calendar from classroom training to shadowing to supervised field work to independent territory.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 8"
+    },
+    {
+      "id": "red-v3-scale-23",
+      "role": "scale",
+      "num": 23,
+      "day": 9,
+      "title": "Build hiring funnel metrics and diagnose source quality, pass rates, rejection reasons, no-shows, and expected cost per hire.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 9"
+    },
+    {
+      "id": "red-v3-scale-24",
+      "role": "scale",
+      "num": 24,
+      "day": 9,
+      "title": "Create Sales Operations Handbook: CRM discipline, lead ownership, follow-up SLA, visit planning, expenses, reporting, escalation, and handovers.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 9"
+    },
+    {
+      "id": "red-v3-scale-25",
+      "role": "scale",
+      "num": 25,
+      "day": 10,
+      "title": "Deliver the complete Sales Scale Kit v1: JD, sourcing, scorecards, interviews, bootcamp, certification, brochure, territories, KPIs, onboarding, coaching.",
+      "category": "Sales & Strategy",
+      "orig_day_label": "Day 10"
+    }
+  ]
+}

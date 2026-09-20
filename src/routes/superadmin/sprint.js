@@ -1,7 +1,8 @@
 const express = require('express');
 const sql = require('../../config/db');
 const { verifySuperAdminMiddleware } = require('../../middleware/verifySuperAdmin');
-const { DAYS_META, ALL_TASKS, seedSprintDataIfNeeded } = require('../../services/sprintSeed');
+const definition = require('../../data/redAlertSprintV3.json');
+const { ROLE_KEYS } = require('../../services/sprintSeed');
 
 const router = express.Router();
 
@@ -42,7 +43,7 @@ router.get('/state', async (req, res) => {
     `;
 
     // 2. Fetch all 100 tasks
-    const tasks = await sql`
+    const taskRows = await sql`
       SELECT 
         id,
         role,
@@ -62,6 +63,11 @@ router.get('/state', async (req, res) => {
       FROM sprint_tasks
       ORDER BY day ASC, role ASC, num ASC
     `;
+    const taskDefinitionById = new Map(definition.tasks.map((task) => [task.id, task]));
+    const tasks = taskRows.map((task) => ({
+      ...task,
+      category: taskDefinitionById.get(task.id)?.category || null,
+    }));
 
     // 3. Compute high-level metrics
     const totalTasks = tasks.length;
@@ -71,9 +77,8 @@ router.get('/state', async (req, res) => {
     const todoTasks = tasks.filter(t => t.status === 'todo').length;
     const completionPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
-    const roles = ['tech', 'acad', 'content', 'sales'];
     const roleBreakdown = {};
-    for (const r of roles) {
+    for (const r of ROLE_KEYS) {
       const rTasks = tasks.filter(t => t.role === r);
       const rDone = rTasks.filter(t => t.status === 'done').length;
       roleBreakdown[r] = {
@@ -139,6 +144,14 @@ router.get('/state', async (req, res) => {
     const uniqueMembers = Array.from(new Map(allMembers.map(m => [m.id, m])).values());
 
     return res.json({
+      definition: {
+        version: definition.version,
+        name: definition.name,
+        duration_days: definition.duration_days,
+        total_deliverables: definition.total_deliverables,
+        operating_rule: definition.operating_rule,
+        roles: definition.roles,
+      },
       days,
       tasks,
       metrics: {
@@ -184,6 +197,11 @@ router.patch('/tasks/:id', async (req, res) => {
     const newAssigneeName = assignee_name !== undefined ? assignee_name : existing.assignee_name;
     const newBlocker = blocker_reason !== undefined ? blocker_reason : existing.blocker_reason;
     const newNotes = notes !== undefined ? notes : existing.notes;
+    if (newStatus === 'done' && !String(newNotes || '').trim()) {
+      return res.status(400).json({
+        error: 'Evidence required. Add a deliverable link or evidence note before marking this task done.',
+      });
+    }
     const completedAt = newStatus === 'done' 
       ? (existing.completed_at || new Date()) 
       : null;
@@ -303,18 +321,17 @@ router.get('/standup/:day', async (req, res) => {
       FROM sprint_tasks
     `;
 
-    const pct = Math.round((done / total) * 100);
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
-    let report = `🚀 *NEXSYRUS SPRINT STANDUP — DAY ${day}* (${dayMeta.date_label})\n`;
+    let report = `🚨 *NEXSYRUS RED ALERT — DAY ${day}* (${dayMeta.date_label})\n`;
     report += `🎯 Focus: ${dayMeta.title}\n`;
     report += `📊 Overall Sprint Progress: ${done}/${total} Tasks Done (${pct}%)\n\n`;
 
-    const roleConfig = [
-      { key: 'tech', label: '👨‍💻 Tech Lead' },
-      { key: 'acad', label: '📚 Academic Lead' },
-      { key: 'content', label: '🎬 Content Lead' },
-      { key: 'sales', label: '📈 Sales Lead' },
-    ];
+    const roleIcons = { tech: '🛠️', curr: '📚', sales: '📈', scale: '🚀' };
+    const roleConfig = ROLE_KEYS.map((key) => ({
+      key,
+      label: `${roleIcons[key] || '•'} ${definition.roles[key].name}`,
+    }));
 
     roleConfig.forEach(r => {
       report += `${r.label}:\n`;
@@ -378,10 +395,10 @@ router.post('/reset', async (req, res) => {
     const updaterName = req.superAdmin?.fullName || req.superAdmin?.email || 'Super Admin';
     await sql`
       INSERT INTO sprint_activity_logs (action, details, user_name, user_id)
-      VALUES ('sprint_reset', 'Reset all 100 sprint tasks and gates to To Do', ${updaterName}, ${req.superAdmin?.id || null})
+      VALUES ('sprint_reset', ${`Reset all ${definition.total_deliverables} RED ALERT deliverables and gates to To Do`}, ${updaterName}, ${req.superAdmin?.id || null})
     `;
 
-    return res.json({ success: true, message: 'All 100 tasks reset to To Do' });
+    return res.json({ success: true, message: `All ${definition.total_deliverables} deliverables reset to To Do` });
   } catch (err) {
     console.error('[sprint/reset] Error:', err);
     return res.status(500).json({ error: 'Failed to reset sprint', details: err.message });

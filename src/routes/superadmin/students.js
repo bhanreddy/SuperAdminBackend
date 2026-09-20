@@ -1,12 +1,13 @@
 const express = require('express');
 const sql = require('../../config/db');
 const { sendResponse } = require('../../utils/apiResponse');
-const { verifySuperAdminMiddleware } = require('../../middleware/verifySuperAdmin');
+const { authenticateUser, requireAnyPermission } = require('../../middleware/rbac');
+const { PERMISSIONS } = require('../../config/rbac');
 
 const router = express.Router();
 
 // GET /api/super-admin/students
-router.get('/', verifySuperAdminMiddleware, async (req, res) => {
+router.get('/', authenticateUser, requireAnyPermission(PERMISSIONS.STUDENTS_READ_ASSIGNED, PERMISSIONS.SCHOOLS_READ_ALL), async (req, res) => {
   try {
     const studentsList = await sql`
       SELECT 
@@ -26,6 +27,9 @@ router.get('/', verifySuperAdminMiddleware, async (req, res) => {
       JOIN schools sc ON s.school_id = sc.id
       LEFT JOIN student_statuses st ON s.status_id = st.id
       WHERE s.deleted_at IS NULL
+        ${req.user.isFounder || req.user.permissions.includes(PERMISSIONS.SCHOOLS_READ_ALL)
+          ? sql``
+          : sql`AND s.school_id IN ${sql(req.user.assignedSchoolIds.length ? req.user.assignedSchoolIds : [-1])}`}
       ORDER BY s.created_at DESC
     `;
     return sendResponse(res, 200, studentsList);
@@ -36,7 +40,7 @@ router.get('/', verifySuperAdminMiddleware, async (req, res) => {
 });
 
 // GET /api/super-admin/students/:id
-router.get('/:id', verifySuperAdminMiddleware, async (req, res) => {
+router.get('/:id', authenticateUser, requireAnyPermission(PERMISSIONS.STUDENTS_READ_ASSIGNED, PERMISSIONS.SCHOOLS_READ_ALL), async (req, res) => {
   try {
     const { id } = req.params;
     const rows = await sql`
@@ -60,6 +64,13 @@ router.get('/:id', verifySuperAdminMiddleware, async (req, res) => {
     `;
     if (!rows.length) {
       return res.status(404).json({ error: 'Student not found' });
+    }
+    if (
+      !req.user.isFounder &&
+      !req.user.permissions.includes(PERMISSIONS.SCHOOLS_READ_ALL) &&
+      !req.user.assignedSchoolIds.includes(Number(rows[0].school_id))
+    ) {
+      return res.status(403).json({ error: 'Access denied to this student\'s school' });
     }
     return sendResponse(res, 200, rows[0]);
   } catch (err) {
