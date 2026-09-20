@@ -96,7 +96,7 @@ async function ensureRoleConstraint(sql) {
   await sql`
     ALTER TABLE sprint_tasks
     ADD CONSTRAINT sprint_tasks_role_check
-    CHECK (role IN ('tech', 'curr', 'sales', 'scale'))
+    CHECK (role IN ('tech', 'curr', 'sales', 'scale')) NOT VALID
   `;
 }
 
@@ -142,6 +142,7 @@ async function seedSprintDataIfNeeded(sql) {
       await sql`DELETE FROM sprint_tasks WHERE id = ${id}`;
     }
     await sql`DELETE FROM sprint_days WHERE day > ${definition.duration_days}`;
+    await sql`ALTER TABLE sprint_tasks VALIDATE CONSTRAINT sprint_tasks_role_check`;
 
     if (retiredIds.length > 0) {
       await sql`
@@ -162,10 +163,23 @@ async function seedSprintDataIfNeeded(sql) {
   }
 }
 
+let sprintReadyPromise = null;
+
+function ensureSprintDataReady(sql) {
+  if (!sprintReadyPromise) {
+    sprintReadyPromise = seedSprintDataIfNeeded(sql).catch((err) => {
+      sprintReadyPromise = null;
+      throw err;
+    });
+  }
+  return sprintReadyPromise;
+}
+
 module.exports = {
   SPRINT_VERSION,
   ROLE_KEYS,
   DAYS_META,
   ALL_TASKS,
   seedSprintDataIfNeeded,
+  ensureSprintDataReady,
 };

@@ -2,7 +2,7 @@ const express = require('express');
 const sql = require('../../config/db');
 const { verifySuperAdminMiddleware } = require('../../middleware/verifySuperAdmin');
 const definition = require('../../data/redAlertSprintV3.json');
-const { ROLE_KEYS } = require('../../services/sprintSeed');
+const { ROLE_KEYS, ensureSprintDataReady } = require('../../services/sprintSeed');
 
 const router = express.Router();
 
@@ -20,6 +20,10 @@ router.use(verifySuperAdminMiddleware);
  */
 router.get('/state', async (req, res) => {
   try {
+    // Close the startup race: the first state request waits until all four
+    // 25-task owner queues have been reconciled in Postgres.
+    await ensureSprintDataReady(sql);
+
     // 1. Fetch days with aggregated task counts
     const days = await sql`
       SELECT 

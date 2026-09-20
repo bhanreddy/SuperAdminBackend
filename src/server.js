@@ -10,7 +10,7 @@ const { requestLogger } = require('./middleware/requestLogger');
 const { errorHandler } = require('./middleware/errorHandler');
 const { startCrmAutomationWorker } = require('./services/crmAutomation');
 const sql = require('./config/db');
-const { seedSprintDataIfNeeded } = require('./services/sprintSeed');
+const { ensureSprintDataReady } = require('./services/sprintSeed');
 const { startPayrollAutomationWorker } = require('./services/payrollAutomation');
 
 const app = express();
@@ -55,5 +55,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   Medical API:  http://localhost:${PORT}/api/v1/medical/\n`);
   startCrmAutomationWorker();
   startPayrollAutomationWorker();
-  seedSprintDataIfNeeded(sql).catch((err) => console.error('[server] Sprint seed error:', err.message));
+  ensureSprintDataReady(sql).catch((err) => console.error('[server] Sprint seed error:', err.message));
 });

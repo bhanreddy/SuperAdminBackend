@@ -6,4 +6,4 @@ ALTER TABLE sprint_tasks
 
 ALTER TABLE sprint_tasks
   ADD CONSTRAINT sprint_tasks_role_check
-  CHECK (role IN ('tech', 'curr', 'sales', 'scale'));
+  CHECK (role IN ('tech', 'curr', 'sales', 'scale')) NOT VALID;
