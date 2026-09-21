@@ -12,6 +12,7 @@ const { startCrmAutomationWorker } = require('./services/crmAutomation');
 const sql = require('./config/db');
 const { ensureSprintDataReady } = require('./services/sprintSeed');
 const { startPayrollAutomationWorker } = require('./services/payrollAutomation');
+const { syncLegacyFounders } = require('./services/founderSync');
 
 const app = express();
 
@@ -55,5 +56,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   Medical API:  http://localhost:${PORT}/api/v1/medical/\n`);
   startCrmAutomationWorker();
   startPayrollAutomationWorker();
+  syncLegacyFounders(sql).catch((err) => console.error('[server] Founder sync error:', err.message));
   ensureSprintDataReady(sql).catch((err) => console.error('[server] Sprint seed error:', err.message));
 });

@@ -12,6 +12,7 @@ const {
   revokeSession,
   revokeAllUserSessions,
 } = require('../../services/sessionService');
+const { allocateFounderEmployeeId } = require('../../services/founderSync');
 
 const router = express.Router();
 
@@ -63,10 +64,11 @@ router.post('/login', async (req, res) => {
       `;
       const legacyFounder = sa || founder;
       if (legacyFounder) {
+        const founderEmpId = await allocateFounderEmployeeId(legacyFounder.email);
         user = {
           id: legacyFounder.id,
           auth_user_id: legacyFounder.id,
-          employee_id: 'FOUNDER-001',
+          employee_id: founderEmpId,
           full_name: legacyFounder.full_name || 'Super Admin',
           email: legacyFounder.email,
           role: ROLES.FOUNDER,
@@ -154,12 +156,13 @@ router.post('/login', async (req, res) => {
     // all subsequent sessions use the same RBAC and revocation architecture.
     if (!internalUser) {
       const localHash = hashPassword(password);
+      const targetEmpId = user.employee_id || (await allocateFounderEmployeeId(user.email));
       [user] = await sql`
         INSERT INTO internal_users (
           id, auth_user_id, employee_id, full_name, email, password_hash,
           role, territory, status
         ) VALUES (
-          ${user.id}, ${verifiedAuthUserId || user.id}, 'FOUNDER-001', ${user.full_name},
+          ${user.id}, ${verifiedAuthUserId || user.id}, ${targetEmpId}, ${user.full_name},
           ${String(user.email).toLowerCase()}, ${localHash}, 'FOUNDER', 'Global', 'ACTIVE'
         )
         ON CONFLICT (email) DO UPDATE SET

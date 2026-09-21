@@ -3,6 +3,8 @@ const sql = require('../../config/db');
 const { schoolSupabaseAdmin } = require('../../config/supabase');
 const { sendResponse } = require('../../utils/apiResponse');
 const { verifySuperAdminMiddleware } = require('../../middleware/verifySuperAdmin');
+const { allocateFounderEmployeeId } = require('../../services/founderSync');
+const { hashPassword } = require('../../utils/passwords');
 
 const router = express.Router();
 
@@ -174,6 +176,29 @@ router.post('/', verifySuperAdminMiddleware, async (req, res) => {
         RETURNING id, email, full_name, is_active, created_at, last_login, created_by
       `;
 
+      try {
+        const empId = await allocateFounderEmployeeId(normEmail, sql);
+        const pwdHash = password ? hashPassword(password) : null;
+        await sql`
+          INSERT INTO internal_users (
+            id, auth_user_id, employee_id, full_name, email, password_hash,
+            role, territory, status, created_by
+          ) VALUES (
+            ${authId}, ${authId}, ${empId}, ${trimmedName}, ${normEmail}, ${pwdHash},
+            'FOUNDER', 'Global', 'ACTIVE', ${createdById}
+          )
+          ON CONFLICT (email) DO UPDATE SET
+            full_name = EXCLUDED.full_name,
+            auth_user_id = COALESCE(internal_users.auth_user_id, EXCLUDED.auth_user_id),
+            password_hash = COALESCE(EXCLUDED.password_hash, internal_users.password_hash),
+            role = 'FOUNDER',
+            status = 'ACTIVE',
+            updated_at = NOW()
+        `;
+      } catch (syncErr) {
+        console.warn('[admins:post] Warning syncing to internal_users:', syncErr.message);
+      }
+
       return sendResponse(res, 201, newAdmin);
     } catch (insertError) {
       // Roll back newly created auth user on DB insert failure
@@ -245,6 +270,14 @@ router.patch('/:id', verifySuperAdminMiddleware, async (req, res) => {
 
     if (error) throw error;
 
+    try {
+      await sql`
+        UPDATE internal_users
+        SET status = ${is_active ? 'ACTIVE' : 'INACTIVE'}, updated_at = NOW()
+        WHERE id = ${id} OR auth_user_id = ${id}
+      `;
+    } catch (_) {}
+
     return sendResponse(res, 200, updatedAdmin);
   } catch (err) {
     console.error('Error updating super admin:', err);
@@ -283,6 +316,13 @@ router.delete('/:id', verifySuperAdminMiddleware, async (req, res) => {
     if (deleteAuthError) throw deleteAuthError;
 
     // super_admins row deletes via CASCADE since id REFERENCES auth.users(id) ON DELETE CASCADE
+    try {
+      await sql`
+        UPDATE internal_users
+        SET status = 'INACTIVE', updated_at = NOW()
+        WHERE id = ${id} OR auth_user_id = ${id}
+      `;
+    } catch (_) {}
 
     return sendResponse(res, 200, { success: true });
   } catch (err) {

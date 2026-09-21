@@ -174,9 +174,15 @@ async function authenticateUser(req, res, next) {
     const activeRow = superAdminRow?.is_active ? superAdminRow : founderRow?.is_active ? founderRow : null;
     if (!activeRow) return res.status(403).json({ error: 'Account is inactive or not authorized' });
 
+    const derivedEmployeeId =
+      activeRow.employee_id ||
+      (activeRow.email && activeRow.email.match(/(?:25e|founder[_-]?)(\d+)/i)
+        ? `FOUNDER-${String(activeRow.email.match(/(?:25e|founder[_-]?)(\d+)/i)[1].slice(-3)).padStart(3, '0')}`
+        : 'FOUNDER-001');
+
     req.user = {
       id: activeRow.user_id || activeRow.id || userId,
-      employeeId: 'FOUNDER-001',
+      employeeId: derivedEmployeeId,
       fullName: activeRow.full_name || 'Founder',
       email: activeRow.email || userEmail,
       role: ROLES.FOUNDER,
