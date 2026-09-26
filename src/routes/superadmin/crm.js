@@ -4,6 +4,12 @@ const { sendResponse } = require('../../utils/apiResponse');
 const { verifySuperAdminMiddleware } = require('../../middleware/verifySuperAdmin');
 const { requireCrmWrite } = require('../../middleware/crmAccess');
 const { enqueueAutomationEvent } = require('../../services/crmAutomation');
+const { resolveCrmScope, assertCrmWrite, assertPlatform, assertAccountAccess, assertLeadAccess } = require('../../services/crm/accessPolicy');
+const { sendCrmError } = require('../../services/crm/errors');
+const sales = require('../../services/crm/salesCrm');
+const prospects = require('../../services/crm/prospects');
+const { syncFounderDirectory, assertActiveFounder } = require('../../services/crm/founderSync');
+const schoolSql = require('../../config/db');
 
 const router = express.Router();
 router.use(verifySuperAdminMiddleware);
@@ -13,10 +19,11 @@ function actorFounderId(req) {
 }
 
 // Non-super founders only see the tenants/leads they own. Full super admins
-// (isSuperAdmin) return null here and bypass all ownership filtering.
+// bypass ownership filtering. A missing founder id is never unrestricted.
 function scopeOwner(req) {
-  if (req.superAdmin?.isSuperAdmin) return null;
-  return req.superAdmin?.founderId || null;
+  const scope = resolveCrmScope(req.superAdmin);
+  if (scope.kind === 'platform') return null;
+  return scope.founderId;
 }
 
 async function audit(db, req, entityType, entityId, action, oldValue, newValue) {
@@ -93,38 +100,58 @@ router.post('/accounts', requireCrmWrite, async (req, res) => {
   try {
     const { name, account_type, vertical, lifecycle_stage, owner_founder_id, email, phone, website, tags } = req.body || {};
     if (!String(name || '').trim()) return res.status(400).json({ error: 'name is required' });
-    const row = await sql.begin(async (tx) => {
-      const [created] = await tx`
-        INSERT INTO crm_accounts
-          (name, account_type, vertical, lifecycle_stage, owner_founder_id, email, phone, website, tags, created_by)
-        VALUES
-          (${String(name).trim()}, ${account_type || 'PROSPECT'}, ${vertical || 'OTHER'}, ${lifecycle_stage || 'LEAD'},
-           ${owner_founder_id || actorFounderId(req)}, ${email || null}, ${phone || null}, ${website || null},
-           ${Array.isArray(tags) ? tags : []}, ${req.superAdmin.id})
-        RETURNING *
-      `;
-      await audit(tx, req, 'crm_account', created.id, 'CREATE', null, created);
-      await enqueueAutomationEvent(tx, 'account.created', 'crm_account', created.id, {
-        account_id: created.id, owner_founder_id: created.owner_founder_id,
-      });
-      return created;
-    });
+    const row = await prospects.createLegacyAccount(sql, resolveCrmScope(req.superAdmin), req.body || {});
     return sendResponse(res, 201, row);
   } catch (err) {
-    console.error('CRM account create failed:', err);
-    return res.status(400).json({ error: err.message || 'Failed to create CRM account' });
+    return sendCrmError(res, err, { route: 'accounts.create' });
   }
 });
 
 router.get('/accounts/:id', async (req, res) => {
   try {
+    const scope = resolveCrmScope(req.superAdmin);
     const [account] = await sql`SELECT a.*, f.full_name AS owner_name FROM crm_accounts a LEFT JOIN founders f ON f.id = a.owner_founder_id WHERE a.id = ${req.params.id}`;
-    if (!account) return res.status(404).json({ error: 'CRM account not found' });
+    try { assertAccountAccess(scope, account); } catch (err) { return sendCrmError(res, err); }
+    const founderId = scope.kind === 'platform' ? null : scope.founderId;
     const [contacts, enquiries, tasks, activities] = await Promise.all([
       sql`SELECT * FROM crm_contacts WHERE account_id = ${account.id} ORDER BY is_primary DESC, created_at`,
-      sql`SELECT * FROM enquiries WHERE account_id = ${account.id} ORDER BY updated_at DESC`,
-      sql`SELECT t.*, f.full_name AS owner_name FROM crm_tasks t LEFT JOIN founders f ON f.id = t.owner_founder_id WHERE t.account_id = ${account.id} ORDER BY t.status, t.due_at NULLS LAST`,
-      sql`SELECT * FROM crm_activities WHERE account_id = ${account.id} ORDER BY occurred_at DESC LIMIT 100`,
+      sql`
+        SELECT id, name, organization, status, outcome, pipeline_stage_code, assigned_to, row_version, created_at
+        FROM enquiries
+        WHERE account_id = ${account.id}
+          AND (${founderId}::uuid IS NULL OR assigned_to = ${founderId})
+        ORDER BY updated_at DESC
+        LIMIT 50
+      `,
+      sql`
+        SELECT t.id, t.title, t.status, t.task_type, t.due_at, t.owner_founder_id, t.enquiry_id, t.account_id, f.full_name AS owner_name
+        FROM crm_tasks t
+        LEFT JOIN founders f ON f.id = t.owner_founder_id
+        WHERE t.account_id = ${account.id}
+          AND (
+            t.enquiry_id IS NULL
+            OR EXISTS (
+              SELECT 1 FROM enquiries e
+              WHERE e.id = t.enquiry_id AND (${founderId}::uuid IS NULL OR e.assigned_to = ${founderId})
+            )
+          )
+        ORDER BY t.status, t.due_at NULLS LAST
+        LIMIT 100
+      `,
+      sql`
+        SELECT id, activity_type, summary, occurred_at, enquiry_id
+        FROM crm_activities
+        WHERE account_id = ${account.id}
+          AND (
+            enquiry_id IS NULL
+            OR EXISTS (
+              SELECT 1 FROM enquiries e
+              WHERE e.id = crm_activities.enquiry_id AND (${founderId}::uuid IS NULL OR e.assigned_to = ${founderId})
+            )
+          )
+        ORDER BY occurred_at DESC
+        LIMIT 100
+      `,
     ]);
     return sendResponse(res, 200, { account, contacts, enquiries, tasks, activities });
   } catch (err) {
@@ -136,67 +163,32 @@ router.get('/accounts/:id', async (req, res) => {
 // it to the provisioned tenant record once the Add form is submitted.
 router.patch('/accounts/:id', requireCrmWrite, async (req, res) => {
   try {
-    const { owner_founder_id, external_client_id, cluster_id, lifecycle_stage } = req.body || {};
-    // Reassigning ownership is a super-admin-only action; a scoped founder must
-    // not hand tenants to themselves or others.
-    if (owner_founder_id !== undefined && !req.superAdmin?.isSuperAdmin) {
-      return res.status(403).json({ error: 'Only a Super Admin can reassign tenant ownership' });
-    }
-    const VALID_STAGES = ['LEAD', 'QUALIFIED', 'ONBOARDING', 'ACTIVE', 'AT_RISK', 'CHURNED'];
-    if (lifecycle_stage !== undefined && lifecycle_stage !== null && !VALID_STAGES.includes(lifecycle_stage)) {
-      return res.status(400).json({ error: 'Invalid lifecycle_stage' });
-    }
-    const row = await sql.begin(async (tx) => {
-      const [old] = await tx`SELECT * FROM crm_accounts WHERE id = ${req.params.id} FOR UPDATE`;
-      if (!old) return null;
-      const [updated] = await tx`
-        UPDATE crm_accounts SET
-          owner_founder_id = CASE WHEN ${owner_founder_id !== undefined} THEN ${owner_founder_id || null} ELSE owner_founder_id END,
-          external_client_id = CASE WHEN ${external_client_id !== undefined} THEN ${external_client_id || null} ELSE external_client_id END,
-          cluster_id = CASE WHEN ${cluster_id !== undefined} THEN ${cluster_id || null} ELSE cluster_id END,
-          lifecycle_stage = COALESCE(${lifecycle_stage || null}, lifecycle_stage),
-          updated_at = now()
-        WHERE id = ${req.params.id} RETURNING *
-      `;
-      await audit(tx, req, 'crm_account', updated.id, 'UPDATE', old, updated);
-      if (owner_founder_id !== undefined && old.owner_founder_id !== updated.owner_founder_id) {
-        await tx`INSERT INTO crm_activities (activity_type, account_id, actor_id, summary, details)
-          VALUES ('OWNER_CHANGED', ${updated.id}, ${req.superAdmin.id}, ${`Tenant reassigned to owner ${updated.owner_founder_id || 'unassigned'}`}, ${tx.json({ from: old.owner_founder_id, to: updated.owner_founder_id })})`;
-      }
-      return updated;
-    });
-    if (!row) return res.status(404).json({ error: 'CRM account not found' });
+    const scope = resolveCrmScope(req.superAdmin);
+    assertCrmWrite(scope);
+    const row = await sales.updateAccount(sql, scope, req.params.id, req.body || {});
     return sendResponse(res, 200, row);
   } catch (err) {
-    console.error('CRM account update failed:', err);
-    return res.status(400).json({ error: err.message || 'Failed to update CRM account' });
+    return sendCrmError(res, err, { account_id: req.params.id });
   }
 });
 
 router.post('/accounts/:id/contacts', requireCrmWrite, async (req, res) => {
   try {
-    const { full_name, role_title, email, phone, is_primary, preferred_channel } = req.body || {};
-    if (!String(full_name || '').trim()) return res.status(400).json({ error: 'full_name is required' });
-    const row = await sql.begin(async (tx) => {
-      if (is_primary) await tx`UPDATE crm_contacts SET is_primary = false WHERE account_id = ${req.params.id}`;
-      const [created] = await tx`
-        INSERT INTO crm_contacts (account_id, full_name, role_title, email, phone, is_primary, preferred_channel)
-        VALUES (${req.params.id}, ${String(full_name).trim()}, ${role_title || null}, ${email || null}, ${phone || null}, ${Boolean(is_primary)}, ${preferred_channel || null})
-        RETURNING *
-      `;
-      await audit(tx, req, 'crm_contact', created.id, 'CREATE', null, created);
-      return created;
-    });
+    const scope = resolveCrmScope(req.superAdmin);
+    assertCrmWrite(scope);
+    const row = await sales.createContact(sql, scope, req.params.id, req.body || {});
     return sendResponse(res, 201, row);
   } catch (err) {
-    return res.status(400).json({ error: err.message || 'Failed to create CRM contact' });
+    return sendCrmError(res, err, { account_id: req.params.id });
   }
 });
 
 router.get('/tasks', async (req, res) => {
   try {
     const { status, due } = req.query;
-    const owner = scopeOwner(req) || req.query.owner;
+    const scope = resolveCrmScope(req.superAdmin);
+    const founderId = scope.kind === 'platform' ? null : scope.founderId;
+    const assignee = scope.kind === 'platform' ? (req.query.owner || null) : null;
     let dueFilter = sql``;
     if (due === 'OVERDUE') dueFilter = sql`AND t.due_at < now()`;
     if (due === 'TODAY') dueFilter = sql`AND t.due_at::date = current_date`;
@@ -207,7 +199,20 @@ router.get('/tasks', async (req, res) => {
       LEFT JOIN crm_accounts a ON a.id = t.account_id
       LEFT JOIN enquiries e ON e.id = t.enquiry_id
       WHERE (${status || null}::text IS NULL OR t.status = ${status || null})
-        AND (${owner || null}::uuid IS NULL OR t.owner_founder_id = ${owner || null})
+        AND (${assignee || null}::uuid IS NULL OR t.owner_founder_id = ${assignee || null})
+        AND (
+          ${founderId}::uuid IS NULL
+          OR (
+            t.enquiry_id IS NOT NULL AND EXISTS (
+              SELECT 1 FROM enquiries e2 WHERE e2.id = t.enquiry_id AND e2.assigned_to = ${founderId}
+            )
+          )
+          OR (
+            t.enquiry_id IS NULL AND EXISTS (
+              SELECT 1 FROM crm_accounts a2 WHERE a2.id = t.account_id AND a2.owner_founder_id = ${founderId}
+            )
+          )
+        )
         ${dueFilter}
       ORDER BY t.due_at NULLS LAST, t.created_at DESC
       LIMIT 300
@@ -223,6 +228,17 @@ router.post('/tasks', requireCrmWrite, async (req, res) => {
     const { title, description, task_type, priority, owner_founder_id, account_id, enquiry_id, due_at } = req.body || {};
     if (!String(title || '').trim()) return res.status(400).json({ error: 'title is required' });
     if (!account_id && !enquiry_id) return res.status(400).json({ error: 'account_id or enquiry_id is required' });
+    if (!due_at || !owner_founder_id) return res.status(400).json({ error: 'An actionable task needs an assignee and a due time', code: 'TASK_REQUIRED' });
+    const scope = resolveCrmScope(req.superAdmin);
+    if (enquiry_id) {
+      const [lead] = await sql`SELECT * FROM enquiries WHERE id = ${enquiry_id}`;
+      assertLeadAccess(scope, lead);
+    }
+    if (account_id) {
+      const [account] = await sql`SELECT * FROM crm_accounts WHERE id = ${account_id}`;
+      assertAccountAccess(scope, account);
+    }
+    await assertActiveFounder(sql, owner_founder_id);
     const row = await sql.begin(async (tx) => {
       const [created] = await tx`
         INSERT INTO crm_tasks (title, description, task_type, priority, owner_founder_id, account_id, enquiry_id, due_at, created_by)
@@ -236,12 +252,26 @@ router.post('/tasks', requireCrmWrite, async (req, res) => {
     });
     return sendResponse(res, 201, row);
   } catch (err) {
-    return res.status(400).json({ error: err.message || 'Failed to create CRM task' });
+    return sendCrmError(res, err);
   }
 });
 
 router.patch('/tasks/:id', requireCrmWrite, async (req, res) => {
   try {
+    const scope = resolveCrmScope(req.superAdmin);
+    assertCrmWrite(scope);
+    const [existing] = await sql`SELECT * FROM crm_tasks WHERE id = ${req.params.id}`;
+    if (!existing) return res.status(404).json({ error: 'CRM task not found' });
+    if (existing.enquiry_id) {
+      const [lead] = await sql`SELECT * FROM enquiries WHERE id = ${existing.enquiry_id}`;
+      try { assertLeadAccess(scope, lead); } catch (err) { return sendCrmError(res, err); }
+      if (['COMPLETED', 'CANCELLED'].includes(req.body?.status) && lead?.next_action_task_id === existing.id && lead.outcome === 'OPEN') {
+        return res.status(400).json({ error: 'Completing the next action requires a replacement action, closure, or an authorized exception', code: 'NEXT_ACTION_REQUIRED' });
+      }
+    } else if (scope.kind !== 'platform' && existing.account_id) {
+      const [account] = await sql`SELECT * FROM crm_accounts WHERE id = ${existing.account_id}`;
+      try { assertAccountAccess(scope, account); } catch (err) { return sendCrmError(res, err); }
+    }
     const { status, priority, owner_founder_id, due_at, title, description } = req.body || {};
     const row = await sql.begin(async (tx) => {
       const [old] = await tx`SELECT * FROM crm_tasks WHERE id = ${req.params.id} FOR UPDATE`;
@@ -270,39 +300,30 @@ router.patch('/tasks/:id', requireCrmWrite, async (req, res) => {
 
 router.post('/enquiries/:id/convert', requireCrmWrite, async (req, res) => {
   try {
-    const result = await sql.begin(async (tx) => {
-      const [lead] = await tx`SELECT * FROM enquiries WHERE id = ${req.params.id} FOR UPDATE`;
-      if (!lead) return null;
-      if (lead.account_id) return { accountId: lead.account_id, existing: true };
-      const [account] = await tx`
-        INSERT INTO crm_accounts (name, account_type, lifecycle_stage, vertical, owner_founder_id, email, phone, created_by)
-        VALUES (${lead.name || 'Unnamed account'}, 'CUSTOMER', 'ONBOARDING', ${req.body?.vertical || 'OTHER'}, ${lead.assigned_to || actorFounderId(req)}, ${lead.email}, ${lead.phone}, ${req.superAdmin.id})
-        RETURNING *
-      `;
-      await tx`UPDATE enquiries SET account_id = ${account.id}, status = 'CLOSED', converted_at = now(), updated_at = now() WHERE id = ${lead.id}`;
-      await tx`INSERT INTO crm_activities (activity_type, account_id, enquiry_id, actor_id, summary) VALUES ('LEAD_CONVERTED', ${account.id}, ${lead.id}, ${req.superAdmin.id}, 'Lead converted to customer account')`;
-      await audit(tx, req, 'enquiry', lead.id, 'CONVERT', lead, { account_id: account.id, status: 'CLOSED' });
-      await enqueueAutomationEvent(tx, 'enquiry.converted', 'enquiry', lead.id, {
-        account_id: account.id, enquiry_id: lead.id, owner_founder_id: account.owner_founder_id,
-      });
-      return { accountId: account.id, existing: false };
-    });
-    if (!result) return res.status(404).json({ error: 'Enquiry not found' });
+    const scope = resolveCrmScope(req.superAdmin);
+    assertCrmWrite(scope);
+    const result = await sales.convertLead(sql, scope, req.params.id, req.body || {});
     return sendResponse(res, 200, result);
   } catch (err) {
-    return res.status(400).json({ error: err.message || 'Failed to convert enquiry' });
+    return sendCrmError(res, err, { enquiry_id: req.params.id });
   }
 });
 
-router.get('/automation-rules', async (_req, res) => {
+router.get('/automation-rules', async (req, res) => {
   try {
+    assertPlatform(resolveCrmScope(req.superAdmin));
     return sendResponse(res, 200, await sql`SELECT * FROM crm_automation_rules ORDER BY created_at DESC`);
   } catch (err) {
-    return res.status(500).json({ error: 'Failed to list automation rules' });
+    return sendCrmError(res, err);
   }
 });
 
 router.post('/automation-rules', requireCrmWrite, async (req, res) => {
+  try {
+    assertPlatform(resolveCrmScope(req.superAdmin));
+  } catch (err) {
+    return sendCrmError(res, err);
+  }
   try {
     const { name, trigger_event, conditions, actions, is_enabled } = req.body || {};
     if (!name || !trigger_event || !Array.isArray(actions)) return res.status(400).json({ error: 'name, trigger_event, and actions[] are required' });
@@ -317,5 +338,12 @@ router.post('/automation-rules', requireCrmWrite, async (req, res) => {
     return res.status(400).json({ error: err.message || 'Failed to create automation rule' });
   }
 });
+
+require('./crmSalesRoutes').mountSalesRoutes(router);
+require('./crmSalesCommandRoutes').mountSalesCommandRoutes(router);
+require('./crmProspectRoutes').mountProspectRoutes(router);
+require('./crmImportRoutes').mountImportRoutes(router);
+require('./crmTrackingRoutes').mountTrackingRoutes(router);
+require('./crmFeedbackRoutes').mountFeedbackRoutes(router);
 
 module.exports = router;

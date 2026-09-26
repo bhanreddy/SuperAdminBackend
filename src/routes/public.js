@@ -5,6 +5,9 @@ const crmSql = require('../config/crmDb');
 const { schoolSupabaseAdmin } = require('../config/supabase');
 const { sendResponse } = require('../utils/apiResponse');
 const { renderVerificationHtml } = require('../utils/employeeDocument');
+const { currentTrackingConfig } = require('../services/crm/trackingConfig');
+const { submitPublicEnquiry } = require('../services/crm/trackingAttribution');
+const { sendCrmError } = require('../services/crm/errors');
 
 const BUCKET = 'festival-posters';
 const VALID_APPS = ['schoolims', 'medipos', 'paperforge'];
@@ -100,11 +103,30 @@ function allowEnquiry(ip) {
 
 // POST /api/public/enquiries
 // Public website/app lead capture. The honeypot field is intentionally accepted
-// but real submissions must leave it blank.
+// but real submissions must leave it blank. Client campaign text is self-reported.
+// Verified attribution comes only from a server-issued context when the flag is on.
 router.post('/enquiries', async (req, res) => {
   try {
     if (!allowEnquiry(req.ip || 'unknown')) {
       return res.status(429).json({ error: 'Too many enquiries. Try again later.' });
+    }
+    const config = currentTrackingConfig();
+    if (config.intakeSecret && req.body?.attribution_context) {
+      const got = Buffer.from(String(req.get('x-crm-intake-secret') || ''));
+      const expected = Buffer.from(config.intakeSecret);
+      if (got.length !== expected.length || !crypto.timingSafeEqual(got, expected)) {
+        return res.status(403).json({ error: 'Enquiry intake was rejected' });
+      }
+    }
+    if (config.attribution) {
+      const remote = req.socket?.remoteAddress || 'local';
+      const rateKey = `enquiry:${crypto.createHash('sha256').update(String(remote)).digest('hex').slice(0, 32)}`;
+      const result = await submitPublicEnquiry(crmSql, req.body || {}, {
+        contextToken: req.body?.attribution_context || null,
+        origin: req.body?.site_origin || null,
+        rateKey,
+      });
+      return res.status(result.status).json(result.body);
     }
     const name = clean(req.body?.name, 120);
     const email = clean(req.body?.email, 180).toLowerCase();
@@ -121,16 +143,23 @@ router.post('/enquiries', async (req, res) => {
       return res.status(400).json({ error: 'Enter a valid email address' });
     }
 
+    const channel = clean(req.body?.channel, 40) || 'WEBSITE';
+    const campaign = clean(req.body?.campaign, 120);
+    const organization = clean(req.body?.organization, 180);
+    const budget = clean(req.body?.budget_range, 80);
+    const allowedSources = new Set(['NEXSYRUS_WEBSITE', 'SCHOOL_ERP', 'MAIN', 'WEBSITE']);
+    const requestedSource = clean(req.body?.website_source, 80).toUpperCase();
+    const websiteSource = allowedSources.has(requestedSource) ? requestedSource : 'NEXSYRUS_WEBSITE';
     const [lead] = await crmSql`
-      INSERT INTO enquiries (name, email, phone, website_source, category, status, message)
-      VALUES (${name}, ${email || null}, ${phone || null}, 'NEXSYRUS_WEBSITE', ${product}, 'NEW', ${message || null})
-      RETURNING id, created_at
+      SELECT id, created_at FROM ingest_website_enquiry(
+        ${name}, ${email || null}, ${phone || null}, ${message || null}, ${product},
+        ${websiteSource}, ${channel}, ${campaign || null}, ${organization || null}, ${budget || null}
+      )
     `;
 
     return sendResponse(res, 201, { accepted: true, enquiryId: lead.id });
   } catch (err) {
-    console.error('Error creating public enquiry:', err);
-    return res.status(500).json({ error: 'Failed to submit enquiry' });
+    return sendCrmError(res, err, { route: 'public.enquiries' });
   }
 });
 

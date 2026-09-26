@@ -10,6 +10,7 @@ const {
 } = require('../../utils/schoolEmail');
 
 const { getClusterServiceClient } = require('../../utils/clusterClient');
+const { interpretSchoolMatches } = require('../../services/schoolLocator');
 const { purgeSchool } = require('../../utils/purgeSchool');
 
 const router = express.Router();
@@ -21,18 +22,43 @@ const APP_CONFIG_FIELDS = [
   'payment_banner_reason',
 ];
 
-async function findSchoolAndClient(id) {
+async function findSchoolAndClient(id, clusterId) {
+  if (clusterId) {
+    try {
+      const client = await getClusterServiceClient(clusterId, 'school');
+      const { data } = await client.from('schools').select('*').eq('id', id).maybeSingle();
+      if (!data) return { school: null, client: null, cluster_id: null };
+      return { school: data, client, cluster_id: clusterId };
+    } catch (err) {
+      return { school: null, client: null, cluster_id: null };
+    }
+  }
   const { data: clusters } = await schoolSupabaseAdmin.from('clusters').select('cluster_id').eq('status', 'active');
-  for (const c of clusters) {
+  const matches = [];
+  for (const c of clusters || []) {
     try {
       const client = await getClusterServiceClient(c.cluster_id, 'school');
       const { data } = await client.from('schools').select('*').eq('id', id).maybeSingle();
-      if (data) return { school: data, client, cluster_id: c.cluster_id };
+      if (data) matches.push({ school: data, client, cluster_id: c.cluster_id });
     } catch (err) {
-      // ignore
+      // ignore unreachable clusters
     }
   }
-  return { school: null, client: null, cluster_id: null };
+  const decision = interpretSchoolMatches(matches);
+  if (decision.status === 409) return { ambiguous: true, error: decision.error };
+  if (decision.status !== 200) return { school: null, client: null, cluster_id: null };
+  return decision.match;
+}
+
+function sendIfAmbiguous(res, located) {
+  if (located && located.ambiguous) {
+    res.status(409).json({
+      error: located.error || 'School id matches more than one cluster. Pass cluster_id.',
+      code: 'AMBIGUOUS_SCHOOL',
+    });
+    return true;
+  }
+  return false;
 }
 
 // GET /api/super-admin/schools
@@ -83,7 +109,9 @@ router.get('/', authenticateUser, requireAnyPermission(PERMISSIONS.SCHOOLS_READ_
 router.get('/:id', authenticateUser, requireAnyPermission(PERMISSIONS.SCHOOLS_READ_ASSIGNED, PERMISSIONS.SCHOOLS_READ_ALL), requireSchoolAccess('id'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { school } = await findSchoolAndClient(id);
+    const located = await findSchoolAndClient(id, req.query.cluster_id);
+    if (located.ambiguous) return res.status(409).json({ error: located.error, code: 'AMBIGUOUS_SCHOOL' });
+    const { school } = located;
     
     if (!school) {
       return res.status(404).json({ error: 'School not found' });
@@ -100,7 +128,9 @@ router.get('/:id/health', authenticateUser, requireAnyPermission(PERMISSIONS.SCH
   try {
     const { id } = req.params;
 
-    const { school, client } = await findSchoolAndClient(id);
+    const located = await findSchoolAndClient(id, req.query.cluster_id);
+    if (sendIfAmbiguous(res, located)) return;
+    const { school, client } = located;
     if (!school) return res.status(404).json({ error: 'School not found' });
 
     // Run counts in parallel via Supabase
@@ -161,9 +191,31 @@ router.post('/', authenticateUser, requirePermission(PERMISSIONS.SCHOOLS_CREATE)
 
     available.sort((a, b) => a.school_count - b.school_count);
     const assigned = available[0];
+    const reserved = await sql`
+      UPDATE clusters
+      SET school_count = school_count + 1, updated_at = now()
+      WHERE cluster_id = ${assigned.cluster_id}
+        AND status = 'active'
+        AND school_count < max_schools
+      RETURNING cluster_id
+    `;
+    if (!reserved.length) {
+      return res.status(503).json({ error: 'All clusters at capacity. Add a new cluster before onboarding more schools.' });
+    }
+    const releaseReservation = () => sql`
+      UPDATE clusters
+      SET school_count = GREATEST(school_count - 1, 0), updated_at = now()
+      WHERE cluster_id = ${assigned.cluster_id}
+    `;
 
     // 2. Get target client
-    const targetClient = await getClusterServiceClient(assigned.cluster_id, 'school');
+    let targetClient;
+    try {
+      targetClient = await getClusterServiceClient(assigned.cluster_id, 'school');
+    } catch (err) {
+      await releaseReservation();
+      throw err;
+    }
 
     // 3. Insert School
     const newSchoolObj = {
@@ -173,13 +225,23 @@ router.post('/', authenticateUser, requirePermission(PERMISSIONS.SCHOOLS_CREATE)
       primary_color: primary_color || '#1A73E8', onboarding_status: 'pending_build'
     };
 
-    const { data: newSchool, error: insErr } = await targetClient
-      .from('schools')
-      .insert(newSchoolObj)
-      .select()
-      .single();
+    let newSchool;
+    let insErr;
+    try {
+      const inserted = await targetClient
+        .from('schools')
+        .insert(newSchoolObj)
+        .select()
+        .single();
+      newSchool = inserted.data;
+      insErr = inserted.error;
+    } catch (err) {
+      await releaseReservation();
+      throw err;
+    }
 
     if (insErr) {
+      await releaseReservation();
       if (insErr.code === '23505') return res.status(409).json({ error: 'School code already exists' });
       throw insErr;
     }
@@ -213,7 +275,9 @@ router.patch('/:id', authenticateUser, requireAnyPermission(PERMISSIONS.SCHOOLS_
     const { id } = req.params;
     const { is_active } = req.body;
     
-    const { school, client } = await findSchoolAndClient(id);
+    const located = await findSchoolAndClient(id, req.query.cluster_id);
+    if (sendIfAmbiguous(res, located)) return;
+    const { school, client } = located;
     if (!school) return res.status(404).json({ error: 'School not found' });
 
     const { data: updated, error } = await client
@@ -281,7 +345,9 @@ router.patch('/:school_id/app-config', authenticateUser, requirePermission(PERMI
       return res.status(400).json({ error: 'At least one app config field is required' });
     }
 
-    const { school, client } = await findSchoolAndClient(school_id);
+    const located = await findSchoolAndClient(school_id, req.query.cluster_id);
+    if (sendIfAmbiguous(res, located)) return;
+    const { school, client } = located;
     if (!school) return res.status(404).json({ error: 'School not found' });
 
     const { data: updated, error } = await client
@@ -304,7 +370,9 @@ router.post('/:id/seed-defaults', authenticateUser, requirePermission(PERMISSION
   try {
     const { id } = req.params;
 
-    const { school, client } = await findSchoolAndClient(id);
+    const located = await findSchoolAndClient(id, req.query.cluster_id);
+    if (sendIfAmbiguous(res, located)) return;
+    const { school, client } = located;
     if (!school) return res.status(404).json({ error: 'School not found' });
 
     const { error } = await client.rpc('seed_school_defaults', { p_school_id: id });
@@ -330,7 +398,9 @@ router.post('/:id/first-admin', authenticateUser, requirePermission(PERMISSIONS.
     }
 
     const canonicalEmail = await assertSchoolEmailAvailable(sql, id, email);
-    const { school, client } = await findSchoolAndClient(id);
+    const located = await findSchoolAndClient(id, req.query.cluster_id);
+    if (sendIfAmbiguous(res, located)) return;
+    const { school, client } = located;
     if (!school) return res.status(404).json({ error: 'School not found' });
 
     const { data: existingContacts } = await client.from('person_contacts').select('id').eq('contact_value', canonicalEmail).eq('school_id', id);
@@ -469,7 +539,9 @@ router.delete('/:id', authenticateUser, requirePermission(PERMISSIONS.SCHOOLS_DE
       return res.status(400).json({ error: 'Invalid school id' });
     }
 
-    const { school, cluster_id } = await findSchoolAndClient(schoolId);
+    const located = await findSchoolAndClient(schoolId, req.query.cluster_id);
+    if (sendIfAmbiguous(res, located)) return;
+    const { school, cluster_id } = located;
     if (!school) return res.status(404).json({ error: 'School not found' });
 
     const deletedSchool = await purgeSchool(sql, schoolId);
@@ -515,7 +587,9 @@ router.patch('/:id/onboarding-status', authenticateUser, requireAnyPermission(PE
       return res.status(400).json({ error: 'Invalid onboarding status' });
     }
 
-    const { school, client } = await findSchoolAndClient(id);
+    const located = await findSchoolAndClient(id, req.query.cluster_id);
+    if (sendIfAmbiguous(res, located)) return;
+    const { school, client } = located;
     if (!school) return res.status(404).json({ error: 'School not found' });
 
     const setObj = { onboarding_status: status };
@@ -544,14 +618,20 @@ router.get('/:id/build-config', authenticateUser, requirePermission(PERMISSIONS.
   try {
     const { id } = req.params;
     
-    const { school, cluster_id } = await findSchoolAndClient(id);
+    const located = await findSchoolAndClient(id, req.query.cluster_id);
+    if (sendIfAmbiguous(res, located)) return;
+    const { school, cluster_id } = located;
     if (!school) return res.status(404).json({ error: 'School not found' });
+    const resolvedCluster = cluster_id || school.cluster_id;
+    if (!resolvedCluster) {
+      return res.status(409).json({ error: 'School has no cluster reference', code: 'CLUSTER_REQUIRED' });
+    }
 
     // Fetch assigned cluster
     const { data: cluster, error: clusterErr } = await schoolSupabaseAdmin
       .from('clusters')
       .select('*')
-      .eq('cluster_id', cluster_id || 'cluster_a')
+      .eq('cluster_id', resolvedCluster)
       .single();
 
     if (clusterErr || !cluster) {

@@ -5,6 +5,8 @@ const sql = require('../../config/db');
 const { schoolSupabaseAdmin } = require('../../config/supabase');
 const { sendResponse } = require('../../utils/apiResponse');
 const { verifySuperAdminMiddleware } = require('../../middleware/verifySuperAdmin');
+const { requirePlatformAdmin } = require('../../middleware/crmAccess');
+const { imageKind } = require('../../utils/uploadBytes');
 
 const BUCKET = 'festival-posters';
 const VALID_APPS = ['schoolims', 'medipos', 'paperforge'];
@@ -17,8 +19,9 @@ const upload = multer({
 
 const router = express.Router();
 
-// All routes require super admin verification
+// Festival posters are broadcast to every client app. Founders do not publish them.
 router.use(verifySuperAdminMiddleware);
+router.use(requirePlatformAdmin);
 
 function posterStatus(row) {
   const now = Date.now();
@@ -69,10 +72,11 @@ router.post('/', upload.single('file'), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: 'No image file uploaded' });
     }
-    const mimeType = req.file.mimetype;
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(mimeType)) {
+    const sniffed = imageKind(req.file.buffer);
+    if (!sniffed || sniffed.mime !== req.file.mimetype) {
       return res.status(400).json({ error: 'Image must be png, jpeg, or webp' });
     }
+    const mimeType = sniffed.mime;
 
     const { title, starts_at, ends_at, created_by } = req.body;
     if (!title || !String(title).trim()) {

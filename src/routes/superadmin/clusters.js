@@ -2,6 +2,7 @@ const express = require('express');
 const config = require('../../config/env');
 const { schoolSupabaseAdmin } = require('../../config/supabase');
 const { verifySuperAdminMiddleware } = require('../../middleware/verifySuperAdmin');
+const { requirePlatformAdmin } = require('../../middleware/crmAccess');
 const { sendResponse } = require('../../utils/apiResponse');
 const fetch = require('node-fetch'); // Use for validate endpoint pinging
 const { getClusterServiceClient } = require('../../utils/clusterClient');
@@ -118,7 +119,7 @@ router.get('/', async (req, res) => {
  * POST /api/super-admin/clusters
  * Create a new cluster.
  */
-router.post('/', verifySuperAdminMiddleware, async (req, res) => {
+router.post('/', verifySuperAdminMiddleware, requirePlatformAdmin, async (req, res) => {
   try {
     const {
       cluster_id, label, school_backend_url, medical_backend_url,
@@ -249,7 +250,7 @@ router.get('/assign', verifySuperAdminMiddleware, async (req, res) => {
  * PATCH /api/super-admin/clusters/:cluster_id
  * Update an existing cluster.
  */
-router.patch('/:cluster_id', verifySuperAdminMiddleware, async (req, res) => {
+router.patch('/:cluster_id', verifySuperAdminMiddleware, requirePlatformAdmin, async (req, res) => {
   try {
     const { cluster_id } = req.params;
     const updates = req.body;
@@ -296,7 +297,7 @@ router.patch('/:cluster_id', verifySuperAdminMiddleware, async (req, res) => {
  * POST /api/super-admin/clusters/:cluster_id/validate
  * Validates backend URLs.
  */
-router.post('/:cluster_id/validate', verifySuperAdminMiddleware, async (req, res) => {
+router.post('/:cluster_id/validate', verifySuperAdminMiddleware, requirePlatformAdmin, async (req, res) => {
   try {
     const { school_backend_url, medical_backend_url } = req.body;
     
@@ -350,7 +351,7 @@ router.post('/:cluster_id/validate', verifySuperAdminMiddleware, async (req, res
  * PATCH /api/super-admin/clusters/:cluster_id/status
  * Activate or deactivate a cluster.
  */
-router.patch('/:cluster_id/status', verifySuperAdminMiddleware, async (req, res) => {
+router.patch('/:cluster_id/status', verifySuperAdminMiddleware, requirePlatformAdmin, async (req, res) => {
   try {
     const { cluster_id } = req.params;
     const { status } = req.body;

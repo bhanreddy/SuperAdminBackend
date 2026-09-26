@@ -9,7 +9,10 @@
     "migrate:rbac": "node src/db/run-migrations.js",
     "test:rbac": "node test-rbac.js",
     "test:sprint": "node --test tests/sprint-definition.test.cjs",
-    "test:checklist": "npm --prefix ../SuperAdminFrontend run test:checklist"
+    "test:checklist": "npm --prefix ../SuperAdminFrontend run test:checklist",
+    "test": "node --test --test-concurrency=1 test/crm/*.test.js",
+    "migrate:crm": "node src/db/applyCrmMigrations.js",
+    "crm:import-worker": "node -e \"require('./src/services/crm/importWorker').startImportWorker(); setInterval(() => {}, 1000)\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
@@ -23,6 +26,9 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "nodemon": "^3.1.11"
+    "@electric-sql/pglite": "0.5.8",
+    "@electric-sql/pglite-socket": "0.2.11",
+    "nodemon": "^3.1.11",
+    "supertest": "7.3.0"
   }
 }

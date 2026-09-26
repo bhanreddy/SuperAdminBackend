@@ -24,9 +24,12 @@ const usersRouter = require('./superadmin/users');
 const requirementsRouter = require('./superadmin/requirements');
 const checklistRouter = require('./superadmin/checklist');
 const supportRouter = require('./superadmin/support');
+const curriculumRouter = require('./superadmin/curriculum');
+const rbacRouter = require('./superadmin/rbac');
 
 // Public (unauthenticated) routes
 const publicRouter = require('./public');
+const internalTrackingRouter = require('./internalTracking');
 
 // Medical sub-routers
 const medicalShopsRouter = require('./medical/shops');
@@ -117,10 +120,17 @@ superAdmin.use('/schools', checklistRouter);
 // Support & Complaints Command Center
 superAdmin.use('/support', supportRouter);
 
+// Curriculum Versioning & Release Management Control Plane
+superAdmin.use('/curriculum', curriculumRouter);
+
+// RBAC V2 & Pilot Boundary Control Plane
+superAdmin.use('/rbac', rbacRouter);
+
 router.use('/api/super-admin', superAdmin);
 
 // ── Public routes (no auth — consumed by client apps) ───────────────────────
 router.use('/api/public', publicRouter);
+router.use('/api/internal/track', internalTrackingRouter);
 
 // ── Medical routes ──────────────────────────────────────────────────────────
 // Exact same path the Expo app expects: /api/v1/medical/*

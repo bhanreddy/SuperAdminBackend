@@ -21,10 +21,18 @@ function resolveCrmDatabaseUrl() {
   return crmUrl.toString();
 }
 
-const crmSql = postgres(resolveCrmDatabaseUrl(), {
-  ssl: { rejectUnauthorized: false },
-  idle_timeout: 20,
-  max_lifetime: 60 * 30,
-});
+function postgresOptions(connectionString) {
+  const local = /@(localhost|127\.0\.0\.1)(:|\/)/.test(connectionString);
+  const pooler = /pooler\.supabase\.com|:6543\b/.test(connectionString);
+  return {
+    ssl: local ? false : { rejectUnauthorized: false },
+    idle_timeout: 20,
+    max_lifetime: 60 * 30,
+    max: 8,
+    prepare: pooler ? false : undefined,
+  };
+}
+
+const crmSql = postgres(resolveCrmDatabaseUrl(), postgresOptions(resolveCrmDatabaseUrl()));
 
 module.exports = crmSql;

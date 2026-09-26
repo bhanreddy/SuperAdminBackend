@@ -1,8 +1,13 @@
+const crypto = require('crypto');
 const sql = require('../config/crmDb');
 
 async function enqueueAutomationEvent(db, triggerEvent, entityType, entityId, payload = {}) {
   const rules = await db`SELECT id FROM crm_automation_rules WHERE trigger_event = ${triggerEvent} AND is_enabled = true`;
-  const eventKey = `${triggerEvent}:${entityId}`;
+  // A real occurrence has its own id. Retries of that occurrence reuse it and
+  // dedupe. A later occurrence of the same event on the same entity must not
+  // be suppressed by the first one.
+  const occurrenceId = payload.occurrence_id || crypto.randomUUID();
+  const eventKey = `${triggerEvent}:${entityId}:${occurrenceId}`;
   for (const rule of rules) {
     await db`
       INSERT INTO crm_automation_runs (rule_id, event_key, entity_type, entity_id, payload)
@@ -23,6 +28,14 @@ async function executeAction(tx, run, action) {
   const accountId = run.payload?.account_id || (run.entity_type === 'crm_account' ? run.entity_id : null);
   const enquiryId = run.payload?.enquiry_id || (run.entity_type === 'enquiry' ? run.entity_id : null);
   if (!accountId && !enquiryId) throw new Error('Automation task requires account_id or enquiry_id');
+  const ownerId = run.payload?.owner_founder_id || null;
+  if (!ownerId || !(dueMinutes > 0)) {
+    await tx`
+      INSERT INTO crm_review_queue (enquiry_id, account_id, reason)
+      VALUES (${enquiryId}, ${accountId}, 'AUTOMATION_TASK_WITHOUT_ASSIGNEE_OR_DUE')
+    `;
+    return;
+  }
 
   const [task] = await tx`
     INSERT INTO crm_tasks
@@ -53,6 +66,10 @@ async function processOneRun() {
     if (!run) return false;
     await tx`UPDATE crm_automation_runs SET status = 'RUNNING', started_at = now(), attempt_count = attempt_count + 1 WHERE id = ${run.id}`;
     try {
+      if (run.payload?.source === 'school_import') {
+        await tx`UPDATE crm_automation_runs SET status = 'SKIPPED', finished_at = now() WHERE id = ${run.id}`;
+        return true;
+      }
       if (!conditionsMatch(run.conditions, run.payload)) {
         await tx`UPDATE crm_automation_runs SET status = 'SKIPPED', finished_at = now() WHERE id = ${run.id}`;
         return true;

@@ -4,10 +4,19 @@ const config = require('./env');
 // Direct Postgres connection to the school database — used by all routes that
 // perform raw SQL queries on school tables (students, staff, schools,
 // permissions, roles, founders, expenses, collections, enquiries, etc.)
-const sql = postgres(config.schoolDatabaseUrl, {
-  ssl: { rejectUnauthorized: false },
-  idle_timeout: 20,
-  max_lifetime: 60 * 30,
-});
+function postgresOptions(connectionString) {
+  const local = /@(localhost|127\.0\.0\.1)(:|\/)/.test(connectionString);
+  const pooler = /pooler\.supabase\.com|:6543\b/.test(connectionString);
+  return {
+    ssl: local ? false : { rejectUnauthorized: false },
+    idle_timeout: 20,
+    max_lifetime: 60 * 30,
+    max: 8,
+    // Transaction-mode pooler (port 6543) does not keep named prepared statements.
+    prepare: pooler ? false : undefined,
+  };
+}
+
+const sql = postgres(config.schoolDatabaseUrl, postgresOptions(config.schoolDatabaseUrl));
 
 module.exports = sql;

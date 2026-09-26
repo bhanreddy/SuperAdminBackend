@@ -5,7 +5,12 @@ const crmSql = require('../../config/crmDb');
 const { schoolSupabaseAdmin } = require('../../config/supabase');
 const { sendResponse } = require('../../utils/apiResponse');
 const { verifySuperAdminMiddleware } = require('../../middleware/verifySuperAdmin');
-const { requireCrmWrite, requireFinanceApproval } = require('../../middleware/crmAccess');
+const { requireCrmWrite, requireFinanceApproval, requireOrgSettings } = require('../../middleware/crmAccess');
+const { imageKind } = require('../../utils/uploadBytes');
+const { resolveCrmScope } = require('../../services/crm/accessPolicy');
+const { sendCrmError } = require('../../services/crm/errors');
+const sales = require('../../services/crm/salesCrm');
+const { salesReport } = require('../../services/crm/reporting');
 
 const upload = multer({ storage: multer.memoryStorage() });
 const router = express.Router();
@@ -24,12 +29,6 @@ router.get('/analytics', async (req, res) => {
       incomeRows,
       expenseV2Rows,
       expenseRoiRows,
-      enquiryRows,
-      closedDealsRows,
-      conversionRows,
-      costPerLeadRows,
-      leadsByWebsiteRows,
-      leadPerformanceRows,
     ] = await Promise.all([
       sql`
         SELECT 
@@ -60,25 +59,21 @@ router.get('/analytics', async (req, res) => {
         GROUP BY 1, 2
         ORDER BY year ASC, month ASC
       `.catch(() => []),
-      sql`SELECT * FROM monthly_enquiry_summary ORDER BY year ASC, month ASC`.catch(() => []),
-      sql`SELECT * FROM monthly_closed_deals ORDER BY year ASC, month ASC`.catch(() => []),
-      sql`SELECT * FROM conversion_rate`.catch(() => []),
-      sql`SELECT * FROM cost_per_lead`.catch(() => []),
-      sql`SELECT * FROM leads_by_website`.catch(() => []),
-      sql`SELECT * FROM founder_lead_performance LIMIT 50`.catch(() => []),
     ]);
 
+    const report = await salesReport(crmSql, resolveCrmScope(req.superAdmin), req.query);
     return sendResponse(res, 200, {
       pending: pendingRows.length > 0 ? pendingRows[0] : null,
       incomeRows,
       expenseV2Rows,
       expenseRoiRows,
-      enquiryRows,
-      closedDealsRows,
-      conversionRows,
-      costPerLeadRows,
-      leadsByWebsiteRows,
-      leadPerformanceRows,
+      enquiryRows: report.source_conversion,
+      closedDealsRows: report.outcomes_by_currency,
+      conversionRows: [{ win_rate: report.win_rate, legacy_unknown_excluded: report.legacy_unknown_excluded }],
+      costPerLeadRows: [],
+      leadsByWebsiteRows: report.source_conversion,
+      leadPerformanceRows: report.stage_aging,
+      salesReport: report,
     });
   } catch (err) {
     console.error('Error fetching analytics:', err);
@@ -190,14 +185,18 @@ router.post('/expenses/:id/reject', requireFinanceApproval, async (req, res) => 
 router.post('/expenses/:id/receipt', requireCrmWrite, upload.single('file'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { founder_id } = req.body;
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const mimeType = req.file.mimetype;
-    const ext = mimeType.includes('png') ? 'png' : mimeType.includes('webp') ? 'webp' : 'jpg';
-    const storagePath = `${founder_id || 'unknown'}/${id}.${ext}`;
+    const sniffed = imageKind(req.file.buffer);
+    if (!sniffed || sniffed.mime !== req.file.mimetype) {
+      return res.status(400).json({ error: 'Receipt must be a png, jpeg, or webp image' });
+    }
+    const [expense] = await sql`SELECT id FROM expenses WHERE id = ${id}`;
+    if (!expense) return res.status(404).json({ error: 'Expense not found' });
+    const mimeType = sniffed.mime;
+    const storagePath = `receipts/${id}.${sniffed.ext}`;
 
     const { error: uploadError } = await schoolSupabaseAdmin.storage
       .from('expense-receipts')
@@ -429,92 +428,62 @@ router.post('/collections/:id/reject', requireFinanceApproval, async (req, res) 
 
 router.get('/enquiries', async (req, res) => {
   try {
-    const { status, source, category, assignedTo } = req.query;
-
-    let statusFilter = crmSql``;
-    if (status && status !== 'ALL') statusFilter = crmSql`AND e.status = ${status}`;
-
-    let sourceFilter = crmSql``;
-    if (source && source !== 'ALL') sourceFilter = crmSql`AND e.website_source = ${source}`;
-
-    let categoryFilter = crmSql``;
-    if (category && category !== 'ALL') categoryFilter = crmSql`AND e.category = ${category}`;
-
-    // Non-super founders are locked to leads assigned to them; full super
-    // admins may use the UNASSIGNED / specific-owner filters freely.
-    const scopeId = req.superAdmin?.isSuperAdmin ? null : (req.superAdmin?.founderId || null);
-    let assignedFilter = crmSql``;
-    if (scopeId) {
-      assignedFilter = crmSql`AND e.assigned_to = ${scopeId}`;
-    } else if (assignedTo === 'UNASSIGNED') {
-      assignedFilter = crmSql`AND e.assigned_to IS NULL`;
-    } else if (assignedTo && assignedTo !== 'ALL') {
-      assignedFilter = crmSql`AND e.assigned_to = ${assignedTo}`;
-    }
-
-    const rows = await crmSql`
-      SELECT id, name, email, phone, website_source AS source, category, status, assigned_to,
-             deal_value, message AS notes, organization, budget_range, created_at, updated_at
-      FROM enquiries e
-      WHERE TRUE ${statusFilter} ${sourceFilter} ${categoryFilter} ${assignedFilter}
-      ORDER BY created_at DESC
-    `;
-    return sendResponse(res, 200, rows);
+    const scope = resolveCrmScope(req.superAdmin);
+    const owner = scope.kind === 'platform'
+      ? (req.query.assignedTo && req.query.assignedTo !== 'ALL' && req.query.assignedTo !== 'UNASSIGNED' ? req.query.assignedTo : null)
+      : scope.founderId;
+    const legacyStatus = req.query.status && req.query.status !== 'ALL' ? req.query.status : null;
+    const page = await sales.listLeads(crmSql, scope, {
+      ...req.query,
+      status: legacyStatus,
+      owner,
+      unassigned: scope.kind === 'platform' && req.query.assignedTo === 'UNASSIGNED',
+      q: req.query.q,
+      stage: req.query.stage,
+      outcome: req.query.outcome,
+      source: req.query.source && req.query.source !== 'ALL' ? req.query.source : null,
+      category: req.query.category && req.query.category !== 'ALL' ? req.query.category : null,
+      limit: req.query.limit,
+      cursor: req.query.cursor,
+    });
+    return sendResponse(res, 200, page);
   } catch (err) {
-    console.error('Error listing enquiries:', err);
-    return res.status(500).json({ error: 'Failed to list enquiries' });
+    return sendCrmError(res, err);
   }
 });
 
 router.get('/enquiries/stats', async (req, res) => {
   try {
+    const scope = resolveCrmScope(req.superAdmin);
+    const founderId = scope.kind === 'platform' ? null : scope.founderId;
     const start = new Date();
     start.setHours(0, 0, 0, 0);
-
     const [todayResult] = await crmSql`
-      SELECT COUNT(*) AS count FROM enquiries WHERE created_at >= ${start.toISOString()}
+      SELECT COUNT(*) AS count FROM enquiries
+      WHERE created_at >= ${start.toISOString()}
+        AND (${founderId}::uuid IS NULL OR assigned_to = ${founderId})
     `;
     const [unassignedResult] = await crmSql`
-      SELECT COUNT(*) AS count FROM enquiries WHERE assigned_to IS NULL
+      SELECT COUNT(*) AS count FROM enquiries
+      WHERE assigned_to IS NULL
+        AND (${founderId}::uuid IS NULL OR assigned_to = ${founderId})
     `;
-
     return sendResponse(res, 200, {
-      enquiriesToday: parseInt(todayResult.count) || 0,
-      unassignedEnquiries: parseInt(unassignedResult.count) || 0,
+      enquiriesToday: parseInt(todayResult.count, 10) || 0,
+      unassignedEnquiries: scope.kind === 'platform' ? (parseInt(unassignedResult.count, 10) || 0) : 0,
     });
   } catch (err) {
-    console.error('Error fetching enquiry stats:', err);
-    return res.status(500).json({ error: 'Failed to fetch enquiry stats' });
+    return sendCrmError(res, err);
   }
 });
 
 router.patch('/enquiries/:id', requireCrmWrite, async (req, res) => {
   try {
-    const { id } = req.params;
-    const { status, assigned_to, deal_value, notes } = req.body;
-    const fields = {};
-    if (status !== undefined) fields.status = status;
-    if (assigned_to !== undefined) fields.assigned_to = assigned_to;
-    if (deal_value !== undefined) fields.deal_value = deal_value;
-    if (notes !== undefined) fields.notes = notes;
-
-    if (Object.keys(fields).length === 0) {
-      return res.status(400).json({ error: 'No fields to update' });
-    }
-
-    await crmSql`
-      UPDATE enquiries SET
-        status = COALESCE(${fields.status ?? null}, status),
-        assigned_to = CASE WHEN ${fields.assigned_to !== undefined} THEN ${fields.assigned_to ?? null} ELSE assigned_to END,
-        deal_value = CASE WHEN ${fields.deal_value !== undefined} THEN ${fields.deal_value ?? null} ELSE deal_value END,
-        message = CASE WHEN ${fields.notes !== undefined} THEN ${fields.notes ?? null} ELSE message END,
-        updated_at = NOW()
-      WHERE id = ${id}
-    `;
-    return sendResponse(res, 200, { success: true });
+    const scope = resolveCrmScope(req.superAdmin);
+    const lead = await sales.applyLegacyPatch(crmSql, scope, req.params.id, req.body || {});
+    return sendResponse(res, 200, { success: true, lead });
   } catch (err) {
-    console.error('Error updating enquiry:', err);
-    return res.status(500).json({ error: 'Failed to update enquiry' });
+    return sendCrmError(res, err, { enquiry_id: req.params.id });
   }
 });
 
@@ -660,30 +629,70 @@ router.patch('/business-units/:id', requireCrmWrite, async (req, res) => {
 // NOTIFICATIONS
 // ==========================================
 
+function notificationActor(req) {
+  const actor = req.superAdmin;
+  return {
+    platform: actor?.isSuperAdmin === true,
+    userId: actor?.id || null,
+    founderId: actor?.founderId || null,
+  };
+}
+
+function ownsNotification(scope, row) {
+  if (!row) return false;
+  if (scope.platform) return true;
+  if (scope.userId && row.user_id === scope.userId) return true;
+  if (scope.founderId && row.founder_id === scope.founderId) return true;
+  return false;
+}
+
+async function ownedNotification(req, id) {
+  const scope = notificationActor(req);
+  const [row] = await sql`
+    SELECT id, user_id, founder_id
+    FROM notifications
+    WHERE id = ${id}
+    LIMIT 1
+  `;
+  if (!ownsNotification(scope, row)) return null;
+  return row;
+}
+
 router.get('/notifications', async (req, res) => {
   try {
-    const { user_id, founder_id } = req.query;
+    const scope = notificationActor(req);
     let rows;
-    if (founder_id) {
+    if (!scope.platform) {
       rows = await sql`
         SELECT id, user_id, founder_id, title, body, type, read_at, created_at
         FROM notifications
-        WHERE user_id = ${user_id} OR founder_id = ${founder_id}
-        ORDER BY created_at DESC LIMIT 200
-      `;
-    } else if (user_id) {
-      rows = await sql`
-        SELECT id, user_id, founder_id, title, body, type, read_at, created_at
-        FROM notifications
-        WHERE user_id = ${user_id}
+        WHERE user_id = ${scope.userId}
+           OR (${scope.founderId}::uuid IS NOT NULL AND founder_id = ${scope.founderId})
         ORDER BY created_at DESC LIMIT 200
       `;
     } else {
-      rows = await sql`
-        SELECT id, user_id, founder_id, title, body, type, read_at, created_at
-        FROM notifications
-        ORDER BY created_at DESC LIMIT 200
-      `;
+      const { user_id, founder_id } = req.query;
+      if (founder_id) {
+        rows = await sql`
+          SELECT id, user_id, founder_id, title, body, type, read_at, created_at
+          FROM notifications
+          WHERE user_id = ${user_id} OR founder_id = ${founder_id}
+          ORDER BY created_at DESC LIMIT 200
+        `;
+      } else if (user_id) {
+        rows = await sql`
+          SELECT id, user_id, founder_id, title, body, type, read_at, created_at
+          FROM notifications
+          WHERE user_id = ${user_id}
+          ORDER BY created_at DESC LIMIT 200
+        `;
+      } else {
+        rows = await sql`
+          SELECT id, user_id, founder_id, title, body, type, read_at, created_at
+          FROM notifications
+          ORDER BY created_at DESC LIMIT 200
+        `;
+      }
     }
     return sendResponse(res, 200, rows);
   } catch (err) {
@@ -694,20 +703,32 @@ router.get('/notifications', async (req, res) => {
 
 router.get('/notifications/unread-count', async (req, res) => {
   try {
-    const { user_id, founder_id } = req.query;
+    const scope = notificationActor(req);
     let result;
-    if (founder_id) {
+    if (!scope.platform) {
       [result] = await sql`
         SELECT COUNT(*) AS count FROM notifications
-        WHERE read_at IS NULL AND (user_id = ${user_id} OR founder_id = ${founder_id})
-      `;
-    } else if (user_id) {
-      [result] = await sql`
-        SELECT COUNT(*) AS count FROM notifications
-        WHERE read_at IS NULL AND user_id = ${user_id}
+        WHERE read_at IS NULL
+          AND (
+            user_id = ${scope.userId}
+            OR (${scope.founderId}::uuid IS NOT NULL AND founder_id = ${scope.founderId})
+          )
       `;
     } else {
-      [result] = await sql`SELECT COUNT(*) AS count FROM notifications WHERE read_at IS NULL`;
+      const { user_id, founder_id } = req.query;
+      if (founder_id) {
+        [result] = await sql`
+          SELECT COUNT(*) AS count FROM notifications
+          WHERE read_at IS NULL AND (user_id = ${user_id} OR founder_id = ${founder_id})
+        `;
+      } else if (user_id) {
+        [result] = await sql`
+          SELECT COUNT(*) AS count FROM notifications
+          WHERE read_at IS NULL AND user_id = ${user_id}
+        `;
+      } else {
+        [result] = await sql`SELECT COUNT(*) AS count FROM notifications WHERE read_at IS NULL`;
+      }
     }
     return sendResponse(res, 200, { count: parseInt(result.count) || 0 });
   } catch (err) {
@@ -718,8 +739,9 @@ router.get('/notifications/unread-count', async (req, res) => {
 
 router.patch('/notifications/:id/read', async (req, res) => {
   try {
-    const { id } = req.params;
-    await sql`UPDATE notifications SET read_at = NOW() WHERE id = ${id}`;
+    const row = await ownedNotification(req, req.params.id);
+    if (!row) return res.status(404).json({ error: 'Notification not found' });
+    await sql`UPDATE notifications SET read_at = NOW() WHERE id = ${row.id}`;
     return sendResponse(res, 200, { success: true });
   } catch (err) {
     console.error('Error marking notification read:', err);
@@ -729,8 +751,9 @@ router.patch('/notifications/:id/read', async (req, res) => {
 
 router.patch('/notifications/:id/unread', async (req, res) => {
   try {
-    const { id } = req.params;
-    await sql`UPDATE notifications SET read_at = NULL WHERE id = ${id}`;
+    const row = await ownedNotification(req, req.params.id);
+    if (!row) return res.status(404).json({ error: 'Notification not found' });
+    await sql`UPDATE notifications SET read_at = NULL WHERE id = ${row.id}`;
     return sendResponse(res, 200, { success: true });
   } catch (err) {
     console.error('Error marking notification unread:', err);
@@ -740,8 +763,9 @@ router.patch('/notifications/:id/unread', async (req, res) => {
 
 router.delete('/notifications/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    await sql`DELETE FROM notifications WHERE id = ${id}`;
+    const row = await ownedNotification(req, req.params.id);
+    if (!row) return res.status(404).json({ error: 'Notification not found' });
+    await sql`DELETE FROM notifications WHERE id = ${row.id}`;
     return sendResponse(res, 200, { success: true });
   } catch (err) {
     console.error('Error deleting notification:', err);
@@ -753,7 +777,7 @@ router.delete('/notifications/:id', async (req, res) => {
 // AUDIT LOGS
 // ==========================================
 
-router.get('/audit-logs', async (req, res) => {
+router.get('/audit-logs', requireOrgSettings, async (req, res) => {
   try {
     const { entity_type, action } = req.query;
 
@@ -784,7 +808,7 @@ router.get('/audit-logs', async (req, res) => {
 // SETTINGS
 // ==========================================
 
-router.get('/settings', async (req, res) => {
+router.get('/settings', requireOrgSettings, async (req, res) => {
   try {
     const { key } = req.query;
     if (!key) return res.status(400).json({ error: 'key query parameter is required' });
@@ -797,7 +821,7 @@ router.get('/settings', async (req, res) => {
   }
 });
 
-router.put('/settings', async (req, res) => {
+router.put('/settings', requireOrgSettings, async (req, res) => {
   try {
     const { key, value } = req.body;
     if (!key) return res.status(400).json({ error: 'key is required' });
@@ -813,7 +837,7 @@ router.put('/settings', async (req, res) => {
   }
 });
 
-router.get('/settings/founders', async (req, res) => {
+router.get('/settings/founders', requireOrgSettings, async (req, res) => {
   try {
     const rows = await sql`
       SELECT id, user_id, email, full_name, role, is_active, created_at
@@ -827,7 +851,7 @@ router.get('/settings/founders', async (req, res) => {
   }
 });
 
-router.patch('/settings/founders/:id/toggle', async (req, res) => {
+router.patch('/settings/founders/:id/toggle', requireOrgSettings, async (req, res) => {
   try {
     const { id } = req.params;
     const { is_active } = req.body;

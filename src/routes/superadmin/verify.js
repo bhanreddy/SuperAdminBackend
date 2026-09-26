@@ -35,7 +35,7 @@ router.get('/verify', verifySuperAdminMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Error in /verify:', err);
     // Default to returning basic info from the middleware if everything else fails
-    return sendResponse(res, 200, { isSuperAdmin: true, admin: req.superAdmin });
+    return res.status(500).json({ error: 'Failed to verify super admin' });
   }
 });
 

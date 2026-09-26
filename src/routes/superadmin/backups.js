@@ -2,9 +2,12 @@ const express = require('express');
 const sql = require('../../config/db');
 const { sendResponse } = require('../../utils/apiResponse');
 const { verifySuperAdminMiddleware } = require('../../middleware/verifySuperAdmin');
+const { requirePlatformAdmin } = require('../../middleware/crmAccess');
 const { triggerManualBackup } = require('../../services/backupJobTrigger');
 
 const router = express.Router();
+router.use(verifySuperAdminMiddleware);
+router.use(requirePlatformAdmin);
 const STALE_BACKUP_HOURS = Number(process.env.STALE_BACKUP_HOURS || 26);
 
 function getAgeInHours(date) {
@@ -14,7 +17,7 @@ function getAgeInHours(date) {
 }
 
 // ── GET /api/super-admin/backups/stats ──────────────────────────────────────
-router.get('/stats', verifySuperAdminMiddleware, async (req, res) => {
+router.get('/stats', async (req, res) => {
   try {
     // 1. Last successful backup
     const [lastSuccessful] = await sql`
@@ -138,7 +141,7 @@ router.get('/stats', verifySuperAdminMiddleware, async (req, res) => {
 });
 
 // ── GET /api/super-admin/backups ───────────────────────────────────────────
-router.get('/', verifySuperAdminMiddleware, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 15));
@@ -225,7 +228,7 @@ router.get('/', verifySuperAdminMiddleware, async (req, res) => {
 });
 
 // ── GET /api/super-admin/backups/:id ───────────────────────────────────────
-router.get('/:id', verifySuperAdminMiddleware, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -257,7 +260,7 @@ router.get('/:id', verifySuperAdminMiddleware, async (req, res) => {
 });
 
 // ── POST /api/super-admin/backups/trigger ──────────────────────────────────
-router.post('/trigger', verifySuperAdminMiddleware, async (req, res) => {
+router.post('/trigger', async (req, res) => {
   try {
     const operator = req.superAdmin?.email || req.founder?.email || 'Founder';
     const result = await triggerManualBackup({ operator });
