@@ -53,6 +53,18 @@ const CRM_MIGRATIONS = [
     database: 'CRM_DATABASE_URL',
     dependsOn: ['18_trackable_links'],
   },
+  {
+    id: '20_field_visits',
+    file: '20_field_visits.sql',
+    database: 'CRM_DATABASE_URL',
+    dependsOn: ['19_field_feedback'],
+  },
+  {
+    id: '21_field_day_plan',
+    file: '21_field_day_plan.sql',
+    database: 'CRM_DATABASE_URL',
+    dependsOn: ['20_field_visits'],
+  },
 ];
 
 function orderedCrmMigrations() {

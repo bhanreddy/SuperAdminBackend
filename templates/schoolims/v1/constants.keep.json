@@ -1,0 +1,14 @@
+{
+  "templateVersion": "schoolims-template/1",
+  "doNotGenerate": [
+    "src/constants/school.ts",
+    "src/constants/Colors.ts",
+    "src/constants/adminTheme.ts",
+    "src/constants/adminNav.types.ts",
+    "src/constants/adminQuickActions.ts",
+    "src/constants/adminSearchIndex.ts",
+    "src/constants/adminSidebarNav.ts",
+    "src/constants/examCategories.ts",
+    "src/constants/references.ts"
+  ]
+}

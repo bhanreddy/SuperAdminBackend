@@ -17,6 +17,27 @@ function postgresOptions(connectionString) {
   };
 }
 
-const sql = postgres(config.schoolDatabaseUrl, postgresOptions(config.schoolDatabaseUrl));
+let currentUrl = null;
+let currentClient = null;
 
-module.exports = sql;
+function getSql() {
+  const url = process.env.SCHOOL_DATABASE_URL || config.schoolDatabaseUrl;
+  if (!currentClient || currentUrl !== url) {
+    currentUrl = url;
+    currentClient = postgres(url, postgresOptions(url));
+  }
+  return currentClient;
+}
+
+const sql = (strings, ...values) => getSql()(strings, ...values);
+
+module.exports = new Proxy(sql, {
+  get(target, prop) {
+    const client = getSql();
+    const val = client[prop];
+    return typeof val === 'function' ? val.bind(client) : val;
+  },
+  apply(target, thisArg, argArray) {
+    return getSql()(...argArray);
+  },
+});

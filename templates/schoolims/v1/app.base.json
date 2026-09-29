@@ -1,0 +1,125 @@
+{
+  "expo": {
+    "name": "",
+    "slug": "",
+    "version": "1.0.0",
+    "platforms": ["android", "ios", "web"],
+    "orientation": "portrait",
+    "icon": "./assets/images/icon-v2.png",
+    "scheme": "",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "requireFullScreen": false,
+      "bundleIdentifier": "",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["fetch", "remote-notification", "location"]
+      },
+      "entitlements": {
+        "aps-environment": "development"
+      }
+    },
+    "android": {
+      "package": "",
+      "jsEngine": "hermes",
+      "versionCode": 1,
+      "enableShrinkResources": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon-v2.png",
+        "backgroundColor": "#E6F4FE",
+        "monochromeImage": "./assets/images/icon-v2.png"
+      },
+      "useNextNotificationsApi": true,
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "VIBRATE",
+        "POST_NOTIFICATIONS",
+        "WAKE_LOCK",
+        "RECEIVE_BOOT_COMPLETED",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/images/favicon.png"
+    },
+    "notification": {
+      "icon": "./assets/images/icon-v2.png",
+      "color": "#1A73E8"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static",
+            "deploymentTarget": "15.1",
+            "forceStaticLinking": ["RNFBApp", "RNFBMessaging"]
+          }
+        }
+      ],
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/icon.png",
+          "backgroundColor": "#FFFFFF",
+          "resizeMode": "contain"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true,
+          "locationWhenInUsePermission": "This app shares the school bus location with parents while a trip is in progress.",
+          "locationAlwaysAndWhenInUsePermission": "This app shares the school bus location with parents while a trip is in progress, including when the screen is off."
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#1A73E8",
+          "sounds": [
+            "./assets/sounds/attendance_absent_alert.wav",
+            "./assets/sounds/notification_default.wav",
+            "./assets/sounds/emergency.wav",
+            "./assets/sounds/fee_reminder.wav",
+            "./assets/sounds/voice_alert.wav",
+            "./assets/sounds/bus_present.wav",
+            "./assets/sounds/busconfirmation.wav"
+          ]
+        }
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
+      "@react-native-community/datetimepicker",
+      "@maplibre/maplibre-react-native",
+      "./plugins/withManifestMerger.js",
+      "./plugins/withAndroidSounds.js"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "updates": {
+      "enabled": true,
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "extra": {
+      "router": {}
+    },
+    "owner": "nexsyrus"
+  }
+}

@@ -3,7 +3,7 @@ const sql = require('../../config/db');
 const { schoolSupabaseAdmin } = require('../../config/supabase');
 const { sendResponse } = require('../../utils/apiResponse');
 const { authenticateUser, requirePermission, requireAnyPermission, requireSchoolAccess } = require('../../middleware/rbac');
-const { PERMISSIONS } = require('../../config/rbac');
+const { PERMISSIONS, ROLES } = require('../../config/rbac');
 const {
   assertSchoolEmailAvailable,
   isSchoolEmailConflict,
@@ -12,6 +12,9 @@ const {
 const { getClusterServiceClient } = require('../../utils/clusterClient');
 const { interpretSchoolMatches } = require('../../services/schoolLocator');
 const { purgeSchool } = require('../../utils/purgeSchool');
+const { logAudit } = require('../../services/auditLogger');
+const { seedDraftFromSchool } = require('../../services/schoolConfiguration');
+const { buildConfigFromDraft } = require('./schoolConfiguration');
 
 const router = express.Router();
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
@@ -88,6 +91,19 @@ router.get('/', authenticateUser, requireAnyPermission(PERMISSIONS.SCHOOLS_READ_
       }
     }));
 
+    // Fallback: If clusters didn't return schools, load from local database schools table
+    if (allSchools.length === 0) {
+      try {
+        const localSchools = await sql`
+          SELECT id, name, code, address, contact_name, contact_phone, contact_email, contact_designation, is_active, created_at
+          FROM schools
+        `;
+        allSchools.push(...localSchools);
+      } catch (e) {
+        // ignore
+      }
+    }
+
     // RBAC: If not Founder or doesn't have schools.read.all, filter to assigned schools only
     const isUnrestricted = req.user?.isFounder || req.user?.permissions?.includes(PERMISSIONS.SCHOOLS_READ_ALL);
     if (!isUnrestricted) {
@@ -111,8 +127,17 @@ router.get('/:id', authenticateUser, requireAnyPermission(PERMISSIONS.SCHOOLS_RE
     const { id } = req.params;
     const located = await findSchoolAndClient(id, req.query.cluster_id);
     if (located.ambiguous) return res.status(409).json({ error: located.error, code: 'AMBIGUOUS_SCHOOL' });
-    const { school } = located;
+    let { school } = located;
     
+    if (!school) {
+      try {
+        const [localSchool] = await sql`SELECT * FROM schools WHERE id = ${id} LIMIT 1`;
+        if (localSchool) school = localSchool;
+      } catch (e) {
+        // ignore
+      }
+    }
+
     if (!school) {
       return res.status(404).json({ error: 'School not found' });
     }
@@ -167,6 +192,13 @@ router.get('/:id/health', authenticateUser, requireAnyPermission(PERMISSIONS.SCH
 // Requires schools.create permission (Founders, Sales Managers, Sales Executives)
 router.post('/', authenticateUser, requirePermission(PERMISSIONS.SCHOOLS_CREATE), async (req, res) => {
   try {
+    if (req.user?.role === ROLES.SALES_EXECUTIVE) {
+      return res.status(403).json({
+        error: 'Sales executives submit a school dossier for founder review. The school is created only after the tech lead approves it.',
+        code: 'INTAKE_REQUIRED',
+      });
+    }
+
     const { 
       name, code, address, logo_url, 
       android_package, ios_bundle_id, primary_color 
@@ -261,6 +293,13 @@ router.post('/', authenticateUser, requirePermission(PERMISSIONS.SCHOOLS_CREATE)
       `;
     }
 
+    await seedDraftFromSchool(sql, {
+      clusterId: assigned.cluster_id,
+      school: newSchool,
+      userId: req.user?.id || null,
+      origin: 'created',
+    }).catch((seedErr) => console.error('[schools] configuration seed failed:', seedErr.message));
+
     return sendResponse(res, 201, newSchool);
   } catch (err) {
     console.error('Error creating school:', err);
@@ -273,22 +312,104 @@ router.post('/', authenticateUser, requirePermission(PERMISSIONS.SCHOOLS_CREATE)
 router.patch('/:id', authenticateUser, requireAnyPermission(PERMISSIONS.SCHOOLS_UPDATE_ASSIGNED, PERMISSIONS.SCHOOLS_UPDATE_ALL), requireSchoolAccess('id'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { is_active } = req.body;
+    const { is_active, contact_name, contact_phone, contact_email, contact_designation, address } = req.body;
     
     const located = await findSchoolAndClient(id, req.query.cluster_id);
     if (sendIfAmbiguous(res, located)) return;
-    const { school, client } = located;
+    let { school, client } = located;
+
+    if (!school) {
+      try {
+        const [localSchool] = await sql`SELECT * FROM schools WHERE id = ${id} LIMIT 1`;
+        if (localSchool) school = localSchool;
+      } catch (e) {
+        // ignore
+      }
+    }
+
     if (!school) return res.status(404).json({ error: 'School not found' });
 
-    const { data: updated, error } = await client
-      .from('schools')
-      .update({ is_active })
-      .eq('id', id)
-      .select()
-      .single();
+    const updatePayload = {};
+    if (is_active !== undefined) updatePayload.is_active = Boolean(is_active);
+    if (contact_name !== undefined) updatePayload.contact_name = contact_name ? String(contact_name).trim() : null;
+    if (contact_phone !== undefined) updatePayload.contact_phone = contact_phone ? String(contact_phone).trim() : null;
+    if (contact_email !== undefined) {
+      if (contact_email && !String(contact_email).includes('@')) {
+        return res.status(400).json({ error: 'Invalid contact email' });
+      }
+      updatePayload.contact_email = contact_email ? String(contact_email).trim().toLowerCase() : null;
+    }
+    if (contact_designation !== undefined) updatePayload.contact_designation = contact_designation ? String(contact_designation).trim() : null;
+    if (address !== undefined) updatePayload.address = address ? String(address).trim() : null;
 
-    if (error) throw error;
-    return sendResponse(res, 200, updated);
+    if (Object.keys(updatePayload).length === 0) {
+      return res.status(400).json({ error: 'No valid update fields provided' });
+    }
+
+    let updatedSchool = { ...school, ...updatePayload };
+
+    // Update in Supabase cluster if client is available
+    if (client) {
+      try {
+        const { data: updated, error } = await client
+          .from('schools')
+          .update(updatePayload)
+          .eq('id', id)
+          .select()
+          .single();
+        if (!error && updated) {
+          updatedSchool = updated;
+        }
+      } catch (err) {
+        console.warn('[schools.patch] Cluster update notice:', err.message);
+      }
+    }
+
+    // Also update in local database schools table
+    try {
+      const [updatedLocal] = await sql`
+        UPDATE schools
+        SET
+          is_active = COALESCE(${updatePayload.is_active !== undefined ? updatePayload.is_active : null}, is_active),
+          contact_name = COALESCE(${updatePayload.contact_name !== undefined ? updatePayload.contact_name : null}, contact_name),
+          contact_phone = COALESCE(${updatePayload.contact_phone !== undefined ? updatePayload.contact_phone : null}, contact_phone),
+          contact_email = COALESCE(${updatePayload.contact_email !== undefined ? updatePayload.contact_email : null}, contact_email),
+          contact_designation = COALESCE(${updatePayload.contact_designation !== undefined ? updatePayload.contact_designation : null}, contact_designation),
+          address = COALESCE(${updatePayload.address !== undefined ? updatePayload.address : null}, address)
+        WHERE id = ${id}
+        RETURNING *
+      `;
+      if (updatedLocal) {
+        updatedSchool = { ...updatedSchool, ...updatedLocal };
+      }
+    } catch (err) {
+      console.warn('[schools.patch] Local DB update notice:', err.message);
+    }
+
+    // Audit log Workflow A: School contact details updated
+    await logAudit({
+      userId: req.user.id,
+      action: 'SCHOOL_CONTACTS_UPDATED',
+      entity: 'SCHOOL',
+      entityId: String(id),
+      details: {
+        actorEmployeeId: req.user.employeeId,
+        actorRole: req.user.role,
+        previous: {
+          is_active: school.is_active,
+          contact_name: school.contact_name,
+          contact_phone: school.contact_phone,
+          contact_email: school.contact_email,
+          contact_designation: school.contact_designation,
+          address: school.address,
+        },
+        updates: updatePayload,
+      },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    return sendResponse(res, 200, updatedSchool);
   } catch (err) {
     console.error('Error updating school:', err);
     res.status(500).json({ error: 'Failed to update school' });
@@ -637,6 +758,9 @@ router.get('/:id/build-config', authenticateUser, requirePermission(PERMISSIONS.
     if (clusterErr || !cluster) {
       return res.status(404).json({ error: 'Assigned cluster not found' });
     }
+
+    const fromDraft = await buildConfigFromDraft(school, resolvedCluster);
+    if (fromDraft) return sendResponse(res, 200, fromDraft);
 
     const env_file = `EXPO_PUBLIC_SCHOOL_ID=${school.id}
 EXPO_PUBLIC_SCHOOL_CODE=${school.code}

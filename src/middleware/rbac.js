@@ -4,11 +4,16 @@ const config = require('../config/env');
 const { schoolSupabaseAdmin } = require('../config/supabase');
 const { ROLES, getEffectivePermissions } = require('../config/rbac');
 
-const JWT_SECRET =
-  process.env.SUPERADMIN_JWT_SECRET ||
-  process.env.JWT_SECRET ||
-  config.schoolSupabase.jwtSecret ||
-  config.schoolSupabase.serviceRoleKey;
+function getJwtSecret() {
+  return (
+    process.env.SUPERADMIN_JWT_SECRET ||
+    process.env.JWT_SECRET ||
+    process.env.SCHOOL_SUPABASE_JWT_SECRET ||
+    config.schoolSupabase.jwtSecret ||
+    config.schoolSupabase.serviceRoleKey
+  );
+}
+const JWT_SECRET = getJwtSecret();
 const JWT_ISSUER = 'nexsyrus-superadmin';
 const JWT_AUDIENCE = 'nexsyrus-superadmin-app';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -16,14 +21,21 @@ const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
 
 /** Verify an internal access JWT, or validate a legacy Supabase session. */
 async function decodeToken(token) {
+  const secret = getJwtSecret();
   try {
-    const payload = jwt.verify(token, JWT_SECRET, {
+    const payload = jwt.verify(token, secret, {
       algorithms: ['HS256'],
       issuer: JWT_ISSUER,
       audience: JWT_AUDIENCE,
     });
     return { ...payload, tokenSource: 'internal' };
   } catch {
+    try {
+      const payload = jwt.verify(token, secret, { algorithms: ['HS256'] });
+      return { ...payload, tokenSource: 'supabase' };
+    } catch {
+      // fall through to remote Supabase verification
+    }
     const { data, error } = await schoolSupabaseAdmin.auth.getUser(token);
     if (!error && data?.user) {
       return {
@@ -77,15 +89,20 @@ async function authenticateUser(req, res, next) {
       return res.status(401).json({ error: 'Token is missing a valid user identity' });
     }
 
-    const [userRow] = await sql`
-      SELECT id, auth_user_id, employee_id, full_name, email, phone, role, status,
-             manager_id, territory, token_version
-      FROM internal_users
-      WHERE id = ${userId}
-         OR auth_user_id = ${userId}
-         OR (email IS NOT NULL AND LOWER(TRIM(email)) = ${userEmail || '__missing__'})
-      LIMIT 1
-    `;
+    let userRow = null;
+    try {
+      [userRow] = await sql`
+        SELECT id, auth_user_id, employee_id, full_name, email, phone, role, status,
+               manager_id, territory, token_version
+        FROM internal_users
+        WHERE id = ${userId}
+           OR auth_user_id = ${userId}
+           OR (email IS NOT NULL AND LOWER(TRIM(email)) = ${userEmail || '__missing__'})
+        LIMIT 1
+      `;
+    } catch {
+      userRow = null;
+    }
 
     if (userRow) {
       if (userRow.status !== 'ACTIVE') {
@@ -193,13 +210,15 @@ async function authenticateUser(req, res, next) {
       sessionId: null,
       tokenSource: 'supabase',
     };
+    const isPlatformAdmin = Boolean(superAdminRow?.is_active);
     req.superAdmin = {
       id: activeRow.user_id || activeRow.id || userId,
       email: activeRow.email || userEmail,
       fullName: activeRow.full_name || 'Founder',
-      isSuperAdmin: true,
-      founderRole: 'FOUNDER',
-      role: ROLES.FOUNDER,
+      isSuperAdmin: isPlatformAdmin,
+      founderRole: founderRow?.role || (isPlatformAdmin ? null : 'FOUNDER'),
+      founderId: founderRow?.id || null,
+      role: isPlatformAdmin ? ROLES.SUPER_ADMIN : (founderRow?.role || ROLES.FOUNDER),
     };
     return next();
   } catch (err) {

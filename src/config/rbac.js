@@ -49,9 +49,10 @@ const PERMISSIONS = {
   COMPLAINTS_UPDATE_ASSIGNED: 'complaints.update.assigned',
   COMPLAINTS_MANAGE: 'complaints.manage',
 
-  // Onboarding checklist permissions
+  // Onboarding checklist & task delegation permissions
   CHECKLIST_READ: 'checklist.read',
   CHECKLIST_UPDATE: 'checklist.update',
+  CHECKLIST_DELEGATE: 'checklist.delegate',
 
   // Configurations permissions
   CONFIGS_READ: 'configs.read',
@@ -88,6 +89,7 @@ const ROLE_PERMISSIONS = {
     PERMISSIONS.USERS_READ_TEAM,
     PERMISSIONS.CHECKLIST_READ,
     PERMISSIONS.CHECKLIST_UPDATE,
+    PERMISSIONS.CHECKLIST_DELEGATE,
     PERMISSIONS.REQUIREMENTS_READ,
     PERMISSIONS.REQUIREMENTS_CREATE,
     PERMISSIONS.REQUIREMENTS_MANAGE,
@@ -265,11 +267,18 @@ const MANAGER_ROLE_CHILDREN = {
   [ROLES.OPERATIONS_MANAGER]: [],
 };
 
+function isRootRole(role) {
+  const norm = normalizeRole(role);
+  return norm === ROLES.FOUNDER || norm === ROLES.SUPER_ADMIN;
+}
+
 function canManageRole(managerRole, childRole) {
   const parent = normalizeRole(managerRole);
   const child = normalizeRole(childRole);
+  if (!parent || !child) return false;
+  // Root roles (Founder, SuperAdmin) can manage managers, view-only admins, and direct executives (e.g. Sales Executive when no sales manager)
   if (parent === ROLES.FOUNDER || parent === ROLES.SUPER_ADMIN) {
-    return child.endsWith('_MANAGER') || child === ROLES.VIEW_ONLY_ADMIN;
+    return child !== ROLES.FOUNDER && child !== ROLES.SUPER_ADMIN;
   }
   return (MANAGER_ROLE_CHILDREN[parent] || []).includes(child);
 }
@@ -285,4 +294,5 @@ module.exports = {
   hasPermission,
   MANAGER_ROLE_CHILDREN,
   canManageRole,
+  isRootRole,
 };

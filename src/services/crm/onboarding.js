@@ -117,6 +117,26 @@ async function executeOperation(crmSql, operationId, body, provisioner) {
     if (!hasStep(operation, 'CREATE_SCHOOL')) {
       await record('CREATE_SCHOOL', { cluster_id: school.cluster_id, target_school_id: String(school.id) });
     }
+    try {
+      const { seedDraftFromSchool } = require('../schoolConfiguration');
+      const schoolSql = require('../../config/db');
+      await seedDraftFromSchool(schoolSql, {
+        clusterId: school.cluster_id,
+        school: {
+          id: school.id,
+          name: body.name,
+          code: body.code,
+          address: body.address || null,
+          android_package: body.android_package || null,
+          ios_bundle_id: body.ios_bundle_id || null,
+          primary_color: body.primary_color || null,
+        },
+        userId: null,
+        origin: 'created',
+      });
+    } catch (seedErr) {
+      logOnboarding('config_seed_failed', { operation_id: operation.id, school_id: school.id, message: seedErr.message });
+    }
     if (!hasStep(operation, 'SEED_DEFAULTS')) {
       const seeded = await provisioner.seedDefaults(school.cluster_id, school.id);
       if (!seeded?.ok) {

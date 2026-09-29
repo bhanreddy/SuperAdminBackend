@@ -5,6 +5,7 @@ const verifyRouter = require('./superadmin/verify');
 const adminsRouter = require('./superadmin/admins');
 const studentsRouter = require('./superadmin/students');
 const schoolsRouter = require('./superadmin/schools');
+const schoolConfigurationRouter = require('./superadmin/schoolConfiguration');
 const featuresRouter = require('./superadmin/features');
 const dashboardRouter = require('./superadmin/dashboard');
 const importRouter = require('./superadmin/import');
@@ -26,6 +27,9 @@ const checklistRouter = require('./superadmin/checklist');
 const supportRouter = require('./superadmin/support');
 const curriculumRouter = require('./superadmin/curriculum');
 const rbacRouter = require('./superadmin/rbac');
+const fieldVisitRouter = require('./superadmin/crmFieldVisitRoutes');
+const schoolIntakeRouter = require('./superadmin/schoolIntake');
+const workspaceRouter = require('./superadmin/workspace');
 
 // Public (unauthenticated) routes
 const publicRouter = require('./public');
@@ -63,8 +67,15 @@ superAdmin.use('/admins', adminsRouter);
 // Students
 superAdmin.use('/students', studentsRouter);
 
+// School configuration wizard and package downloads. Mounted first so
+// /schools/:id/configuration does not fall through a broader school router.
+superAdmin.use('/schools', schoolConfigurationRouter);
+
 // Schools (GET|POST /schools, PATCH /schools/:id, POST /schools/:id/seed-defaults|first-admin)
 superAdmin.use('/schools', schoolsRouter);
+
+// Sales executive school dossiers. Founder approval creates the tenant.
+superAdmin.use('/school-intake', schoolIntakeRouter);
 
 // Per-school student feature flags (GET /schools/:schoolId/features,
 // PUT /schools/:schoolId/features/:featureKey) — mounted before nothing else
@@ -125,6 +136,12 @@ superAdmin.use('/curriculum', curriculumRouter);
 
 // RBAC V2 & Pilot Boundary Control Plane
 superAdmin.use('/rbac', rbacRouter);
+
+// Field visits are used by sales executives, not only founders.
+superAdmin.use('/field', fieldVisitRouter);
+
+// Daily role-based workspaces (Executive, Manager, Founder)
+superAdmin.use('/workspace', workspaceRouter);
 
 router.use('/api/super-admin', superAdmin);
 

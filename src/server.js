@@ -11,6 +11,9 @@ const { ensureSprintDataReady } = require('./services/sprintSeed');
 const { startPayrollAutomationWorker } = require('./services/payrollAutomation');
 const { syncLegacyFounders } = require('./services/founderSync');
 const { assertTrackingStartup } = require('./services/crm/trackingConfig');
+const { ensureSchoolIntakeSchema } = require('./services/schoolIntake');
+const { ensureSchoolConfigurationSchema } = require('./services/schoolConfiguration');
+const { startSchoolPackageWorker, stopSchoolPackageWorker } = require('./services/schoolPackageWorker');
 
 assertTrackingStartup();
 
@@ -27,6 +30,12 @@ app.listen(PORT, '0.0.0.0', () => {
   startPayrollAutomationWorker();
   syncLegacyFounders(sql).catch((err) => console.error('[server] Founder sync error:', err.message));
   ensureSprintDataReady(sql).catch((err) => console.error('[server] Sprint seed error:', err.message));
+  ensureSchoolIntakeSchema().catch((err) => console.error('[server] School intake schema error:', err.message));
+  ensureSchoolConfigurationSchema(sql).catch((err) => console.error('[server] School configuration schema error:', err.message));
+  startSchoolPackageWorker(sql);
 });
 
-process.on('SIGTERM', () => stopImportWorker());
+process.on('SIGTERM', () => {
+  stopImportWorker();
+  stopSchoolPackageWorker();
+});

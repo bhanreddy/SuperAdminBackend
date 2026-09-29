@@ -1,0 +1,9 @@
+{
+  "logo": "assets/images/icon.png",
+  "app_icon": "assets/images/icon-v2.png",
+  "splash": "assets/images/icon.png",
+  "adaptive_foreground": "assets/images/icon-v2.png",
+  "notification_icon": "assets/images/notification-icon.png",
+  "favicon": "assets/images/favicon.png",
+  "campus_photo": "assets/images/schoolImage.png"
+}
