@@ -25,6 +25,7 @@ const {
   retryJob,
   resetSchemaForTests,
 } = require('../../src/services/schoolConfiguration');
+process.env.SCHOOL_LIBRARY_ROOT = '';
 const { tick, memoryStorage } = require('../../src/services/schoolPackageWorker');
 
 const FORBIDDEN = [/geetanjali/i, /ghs-maddur/i, /school-17/, /samskruthe/i, /5e99bce0-6c29-4767-9f70-10ea0ea9582f/, /testapp-7dd9e/];
@@ -139,7 +140,7 @@ test('a new Android and web school package is consistent and does not leak anoth
   const schoolConfig = await unzipText(rendered.zip, 'schoolConfig.ts');
   assert.match(env, /EXPO_PUBLIC_SCHOOL_ID=42/);
   assert.match(env, /EXPO_PUBLIC_SCHOOL_NAME=Riverdale/);
-  assert.match(env, /EXPO_PUBLIC_API_URL=https:\/\/cluster-b\.example\/api\/v1/);
+  assert.match(env, /EXPO_PUBLIC_API_URL=https:\/\/simsapi\.nexsyrus\.com\/api\/v1/);
   assert.equal(app.expo.name, 'Riverdale');
   assert.equal(app.expo.android.package, 'com.nexsyrussims.riverdale');
   assert.deepEqual(app.expo.platforms, ['android', 'web']);
@@ -166,13 +167,14 @@ test('the same numeric school id on another cluster is a different package', asy
     schoolId: 42,
     clusterId: 'cluster_c',
     revision: 1,
-    snapshot: snapshot('https://cluster-c.example/api/v1'),
+    snapshot: { ...snapshot('https://cluster-c.example/api/v1'), school_supabase_url: 'https://cluster-c.supabase.co' },
     assetBodies: assetsFor('com.nexsyrussims.riverdalec'),
     notificationDedicated: false,
   });
   assert.equal(other.folder, 'riverdalec-cluster_c-42-r1');
   const env = await unzipText(other.zip, '.env');
-  assert.match(env, /cluster-c\.example/);
+  assert.match(env, /EXPO_PUBLIC_API_URL=https:\/\/simsapi\.nexsyrus\.com\/api\/v1/);
+  assert.match(env, /cluster-c\.supabase\.co/);
   assert.doesNotMatch(env, /cluster-b\.example/);
 });
 
@@ -304,7 +306,7 @@ test('draft conflicts, package retries, and downloads stay on the original schoo
       schoolId: 42,
       userId: null,
       idempotencyKey: 'riverdale-generate-1',
-      cluster: snapshot('https://other.example/api'),
+      cluster: { ...snapshot(), school_supabase_url: 'https://other.supabase.co' },
       assetPresence: presence,
     }),
     (err) => err.code === 'IDEMPOTENCY_CONFLICT',
@@ -340,7 +342,7 @@ test('draft conflicts, package retries, and downloads stay on the original schoo
   assert.equal(schools.name, null);
   await sql`
     UPDATE school_package_jobs
-    SET status = 'FAILED', attempt_count = 1, error = ${sql.json({ message: 'storage blip' })}
+    SET status = 'FAILED', attempt_count = 3, error = ${sql.json({ message: 'storage blip' })}
     WHERE id = ${first.job.id}
   `;
   await sql`DELETE FROM school_package_artifacts WHERE cluster_id = 'cluster_b' AND school_id = 42`;

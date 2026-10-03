@@ -54,6 +54,7 @@ const superAdmin = express.Router();
 
 // Auth (no middleware — login/refresh don't require a token)
 superAdmin.use('/auth', founderAuthRouter);
+superAdmin.use('/media', require('./superadmin/media'));
 
 // Verify
 superAdmin.use('/', verifyRouter);

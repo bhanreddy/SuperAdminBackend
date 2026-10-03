@@ -13,6 +13,7 @@ const {
   diffValues,
   coded,
 } = require('./schoolConfigSchema');
+const { storedLibrary } = require('./schoolLibrary');
 
 const MIGRATION = path.join(__dirname, '../db/migrations/24_school_configuration.sql');
 let schemaReady = null;
@@ -161,9 +162,12 @@ async function requestPackage(sql, { clusterId, schoolId, userId, idempotencyKey
       FOR UPDATE
     `;
     if (!draft) throw coded(404, 'Configuration draft not found', 'DRAFT_MISSING');
-    const blockers = collectBlockers({ ...draft.config, origin: draft.origin }, assetPresence, snapshot);
-    if (blockers.length) throw coded(422, 'Selected platforms are not ready', 'PLATFORM_BLOCKED', blockers);
-    const requestHash = hashRequest(draft, snapshot);
+    const library = await storedLibrary(tx, clusterId, schoolId);
+    if (!library) {
+      const blockers = collectBlockers({ ...draft.config, origin: draft.origin }, assetPresence, snapshot);
+      if (blockers.length) throw coded(422, 'Selected platforms are not ready', 'PLATFORM_BLOCKED', blockers);
+    }
+    const requestHash = sha256(Buffer.from(hashRequest(draft, snapshot) + JSON.stringify(library)));
     const key = String(idempotencyKey).trim();
     const [existingKey] = await tx`
       SELECT * FROM school_package_jobs
@@ -176,17 +180,17 @@ async function requestPackage(sql, { clusterId, schoolId, userId, idempotencyKey
       return { job: existingKey, created: false };
     }
     const [last] = await tx`
-      SELECT revision, draft_version FROM school_config_revisions
+      SELECT revision, draft_version, folder_source, cluster_snapshot FROM school_config_revisions
       WHERE cluster_id = ${clusterId} AND school_id = ${Number(schoolId)}
       ORDER BY revision DESC
       LIMIT 1
     `;
     let revision = last ? Number(last.revision) : 0;
-    if (!last || Number(last.draft_version) !== Number(draft.version)) {
+    if (!last || Number(last.draft_version) !== Number(draft.version) || last.folder_source?.sha256 !== library?.sha256 || diffValues(last.cluster_snapshot, snapshot).length > 0) {
       revision += 1;
       await tx`
         INSERT INTO school_config_revisions (
-          cluster_id, school_id, revision, config, cluster_snapshot, asset_ids, template_version, draft_version, created_by
+          cluster_id, school_id, revision, config, cluster_snapshot, asset_ids, template_version, draft_version, created_by, folder_source
         ) VALUES (
           ${clusterId},
           ${Number(schoolId)},
@@ -196,7 +200,8 @@ async function requestPackage(sql, { clusterId, schoolId, userId, idempotencyKey
           ${tx.json(draft.asset_ids || {})},
           ${TEMPLATE_VERSION},
           ${draft.version},
-          ${userId ?? null}
+          ${userId ?? null},
+          ${library ? tx.json(library) : null}
         )
       `;
     } else {
@@ -224,7 +229,7 @@ async function requestPackage(sql, { clusterId, schoolId, userId, idempotencyKey
 async function retryJob(sql, { clusterId, schoolId, jobId }) {
   const [job] = await sql`
     UPDATE school_package_jobs
-    SET status = 'QUEUED', lease_expires_at = NULL, locked_by = NULL, error = NULL, updated_at = NOW()
+    SET status = 'QUEUED', attempt_count = 0, lease_expires_at = NULL, locked_by = NULL, error = NULL, updated_at = NOW()
     WHERE id = ${jobId}
       AND cluster_id = ${clusterId}
       AND school_id = ${Number(schoolId)}

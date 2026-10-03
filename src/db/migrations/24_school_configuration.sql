@@ -85,3 +85,18 @@ CREATE TABLE IF NOT EXISTS school_package_artifacts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (cluster_id, school_id, revision)
 );
+
+-- Imported SSD folders are private, immutable objects. School 0 is the cluster template.
+CREATE TABLE IF NOT EXISTS school_folder_sources (
+  cluster_id TEXT NOT NULL,
+  school_id INTEGER NOT NULL,
+  folder TEXT NOT NULL,
+  storage_path TEXT NOT NULL,
+  sha256 TEXT NOT NULL,
+  config JSONB NOT NULL DEFAULT '{}'::jsonb,
+  file_count INTEGER NOT NULL,
+  imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (cluster_id, school_id)
+);
+ALTER TABLE school_folder_sources ENABLE ROW LEVEL SECURITY;
+ALTER TABLE school_config_revisions ADD COLUMN IF NOT EXISTS folder_source JSONB;

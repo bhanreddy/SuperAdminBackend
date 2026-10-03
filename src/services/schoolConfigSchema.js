@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { schoolPublicApiUrl } = require('../config/schoolPublicApi');
 
 const TEMPLATE_VERSION = 'schoolims-template/1';
 const GALLERY_CONTACT_URL = 'https://api.whatsapp.com/send?phone=917892654731&text=Hi%2C%20I%20want%20to%20build%20a%20website%20for%20my%20school.';
@@ -383,7 +384,7 @@ function backfillFromSchool(school, origin) {
 function publicClusterSnapshot(cluster) {
   if (!cluster) return null;
   const snapshot = {
-    school_backend_url: cluster.school_backend_url || '',
+    school_backend_url: schoolPublicApiUrl(),
     school_supabase_url: cluster.school_supabase_url || '',
     school_anon_key: cluster.school_anon_key || '',
   };

@@ -1,3 +1,4 @@
+const { schoolPublicApiUrl } = require('../../config/schoolPublicApi');
 const express = require('express');
 const sql = require('../../config/db');
 const { schoolSupabaseAdmin } = require('../../config/supabase');
@@ -252,7 +253,7 @@ router.post('/', authenticateUser, requirePermission(PERMISSIONS.SCHOOLS_CREATE)
     // 3. Insert School
     const newSchoolObj = {
       name, code, address: address || null, logo_url: logo_url || null, 
-      cluster_id: assigned.cluster_id, backend_url: assigned.school_backend_url, 
+      cluster_id: assigned.cluster_id, backend_url: schoolPublicApiUrl(),
       android_package: android_package || null, ios_bundle_id: ios_bundle_id || null, 
       primary_color: primary_color || '#1A73E8', onboarding_status: 'pending_build'
     };
@@ -765,7 +766,7 @@ router.get('/:id/build-config', authenticateUser, requirePermission(PERMISSIONS.
     const env_file = `EXPO_PUBLIC_SCHOOL_ID=${school.id}
 EXPO_PUBLIC_SCHOOL_CODE=${school.code}
 EXPO_PUBLIC_SCHOOL_NAME="${school.name}"
-EXPO_PUBLIC_API_URL=${cluster.school_backend_url}
+EXPO_PUBLIC_API_URL=${schoolPublicApiUrl()}
 EXPO_PUBLIC_SUPABASE_URL=${cluster.school_supabase_url}
 EXPO_PUBLIC_SUPABASE_ANON_KEY=${cluster.school_anon_key}
 EXPO_PUBLIC_PRIMARY_COLOR=${school.primary_color || '#1A73E8'}
@@ -785,7 +786,7 @@ EXPO_PUBLIC_PRIMARY_COLOR=${school.primary_color || '#1A73E8'}
           "EXPO_PUBLIC_SCHOOL_ID": school.id,
           "EXPO_PUBLIC_SCHOOL_CODE": school.code,
           "EXPO_PUBLIC_SCHOOL_NAME": school.name,
-          "EXPO_PUBLIC_API_URL": cluster.school_backend_url,
+          "EXPO_PUBLIC_API_URL": schoolPublicApiUrl(),
           "EXPO_PUBLIC_SUPABASE_URL": cluster.school_supabase_url,
           "EXPO_PUBLIC_SUPABASE_ANON_KEY": cluster.school_anon_key,
           "EXPO_PUBLIC_PRIMARY_COLOR": school.primary_color || '#1A73E8'

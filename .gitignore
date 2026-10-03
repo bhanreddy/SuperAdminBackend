@@ -9,3 +9,5 @@ yarn-error.log*
 *.db
 test_db.js
 .DS_Store
+
+.school-library-backups/

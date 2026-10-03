@@ -1,3 +1,4 @@
+const { schoolPublicApiUrl } = require('../config/schoolPublicApi');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -382,7 +383,7 @@ async function approveIntake(user, id) {
         address: [dossier.address, dossier.city, dossier.state, dossier.pincode].filter(Boolean).join(', ') || null,
         logo_url: dossier.logo_url || null,
         cluster_id: cluster.cluster_id,
-        backend_url: cluster.school_backend_url,
+        backend_url: schoolPublicApiUrl(),
         android_package: dossier.android_package || null,
         ios_bundle_id: dossier.ios_bundle_id || null,
         primary_color: dossier.primary_color || '#1A73E8',

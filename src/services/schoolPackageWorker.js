@@ -3,6 +3,7 @@ const os = require('os');
 const { schoolSupabaseAdmin } = require('../config/supabase');
 const { getRevision, sha256 } = require('./schoolConfiguration');
 const { renderPackage } = require('./schoolPackageRender');
+const { packSchoolConstants } = require('./schoolLibrary');
 
 const BUCKET = 'school-packages';
 const workerId = `${os.hostname()}:${process.pid}:${crypto.randomBytes(4).toString('hex')}`;
@@ -90,7 +91,14 @@ async function executeJob(sql, job, storage) {
   const revision = await getRevision(sql, job.cluster_id, job.school_id, job.revision);
   if (!revision) throw Object.assign(new Error('Configuration revision is missing'), { code: 'REVISION_MISSING' });
   const { bodies, notificationDedicated } = await loadAssetBodies(sql, storage, revision);
-  const rendered = await renderPackage({
+  const rendered = revision.folder_source ? await packSchoolConstants({
+    folderSource: revision.folder_source,
+    storage,
+    schoolId: job.school_id,
+    rawConfig: revision.config,
+    snapshot: revision.cluster_snapshot,
+    assetBodies: bodies,
+  }) : await renderPackage({
     rawConfig: revision.config,
     schoolId: job.school_id,
     clusterId: job.cluster_id,

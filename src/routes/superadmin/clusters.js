@@ -1,3 +1,4 @@
+const { schoolPublicApiUrl } = require('../../config/schoolPublicApi');
 const express = require('express');
 const config = require('../../config/env');
 const { schoolSupabaseAdmin } = require('../../config/supabase');
@@ -227,7 +228,7 @@ router.get('/assign', verifySuperAdminMiddleware, async (req, res) => {
       school_db: {
         supabase_url: assigned.school_supabase_url,
         supabase_anon_key: assigned.school_anon_key,
-        backend_url: assigned.school_backend_url,
+        backend_url: schoolPublicApiUrl(),
       },
       medical_db: {
         supabase_url: assigned.medical_supabase_url,

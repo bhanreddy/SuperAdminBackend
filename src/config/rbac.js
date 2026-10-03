@@ -73,6 +73,11 @@ const PERMISSIONS = {
   // Audit & Analytics permissions
   AUDIT_READ: 'audit.read',
   ANALYTICS_READ: 'analytics.read',
+
+  CURRICULUM_READ: 'curriculum.read',
+  CURRICULUM_AUTHOR: 'curriculum.author',
+  CURRICULUM_REVIEW: 'curriculum.review',
+  CURRICULUM_PUBLISH: 'curriculum.publish',
 };
 
 const ALL_PERMISSIONS = Object.values(PERMISSIONS);

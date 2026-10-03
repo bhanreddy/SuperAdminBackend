@@ -4,6 +4,7 @@ const { sendResponse } = require('../../utils/apiResponse');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const CurriculumMasterService = require('../../services/curriculumMasterService');
 const CurriculumPublicationService = require('../../services/curriculumPublicationService');
+const CurriculumAuthoringClient = require('../../services/curriculumAuthoringClient');
 const CurriculumDiffService = require('../../services/curriculumDiffService');
 const sql = require('../../config/db');
 
@@ -37,7 +38,7 @@ router.post('/products', asyncHandler(async (req, res) => {
   const product = await CurriculumMasterService.createProduct({
     code, name, description, board_or_framework, curriculum_type,
     default_language, supported_languages,
-    userId: req.superAdmin?.id
+    authorization: req.headers.authorization
   });
 
   return sendResponse(res, 201, { success: true, data: product });
@@ -51,7 +52,7 @@ router.post('/products/:id/versions', asyncHandler(async (req, res) => {
     releaseName: release_name,
     releaseNotes: release_notes,
     basedOnVersionId: based_on_version_id,
-    userId: req.superAdmin?.id
+    authorization: req.headers.authorization
   });
   return sendResponse(res, 201, { success: true, data: version });
 }));
@@ -89,7 +90,8 @@ router.post('/versions/:id/offerings', asyncHandler(async (req, res) => {
     canonicalSubjectName: canonical_subject_name,
     subjectType: subject_type,
     sequence: sequence || 1,
-    weeklyPeriods: weekly_periods || 5
+    weeklyPeriods: weekly_periods || 5,
+    authorization: req.headers.authorization
   });
 
   return sendResponse(res, 201, { success: true, data: offering });
@@ -103,7 +105,8 @@ router.post('/offerings/:id/units', asyncHandler(async (req, res) => {
     offeringId: req.params.id,
     code, title, description,
     sequence: sequence || 1,
-    estimatedPeriods: estimated_periods || 10
+    estimatedPeriods: estimated_periods || 10,
+    authorization: req.headers.authorization
   });
 
   return sendResponse(res, 201, { success: true, data: unit });
@@ -118,7 +121,8 @@ router.post('/units/:id/chapters', asyncHandler(async (req, res) => {
     code, title, description,
     sequence: sequence || 1,
     estimatedPeriods: estimated_periods || 2,
-    difficultyLevel: difficulty_level || 'MEDIUM'
+    difficultyLevel: difficulty_level || 'MEDIUM',
+    authorization: req.headers.authorization
   });
 
   return sendResponse(res, 201, { success: true, data: chapter });
@@ -136,7 +140,8 @@ router.post('/chapters/:id/lessons', asyncHandler(async (req, res) => {
     estimatedMinutes: estimated_minutes || 45,
     teacherGuidance: teacher_guidance,
     studentSummary: student_summary,
-    isOptional: is_optional || false
+    isOptional: is_optional || false,
+    authorization: req.headers.authorization
   });
 
   return sendResponse(res, 201, { success: true, data: lesson });
@@ -147,7 +152,7 @@ router.post('/chapters/:id/lessons', asyncHandler(async (req, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 router.post('/versions/:id/submit-review', asyncHandler(async (req, res) => {
-  const updated = await CurriculumPublicationService.submitForReview(req.params.id, req.superAdmin?.id);
+  const updated = await CurriculumPublicationService.submitForReview(req.params.id, { authorization: req.headers.authorization });
   return sendResponse(res, 200, { success: true, data: updated });
 }));
 
@@ -159,7 +164,7 @@ router.post('/versions/:id/reviews', asyncHandler(async (req, res) => {
     reviewType: review_type,
     summary,
     status: status || 'IN_PROGRESS',
-    reviewerId: req.superAdmin?.id
+    authorization: req.headers.authorization
   });
 
   return sendResponse(res, 201, { success: true, data: review });
@@ -183,7 +188,7 @@ router.post('/versions/:id/comments', asyncHandler(async (req, res) => {
     fieldPath: field_path,
     severity: severity || 'REQUIRED_CHANGE',
     comment,
-    createdBy: req.superAdmin?.id
+    authorization: req.headers.authorization
   });
 
   return sendResponse(res, 201, { success: true, data: reviewComment });
@@ -192,14 +197,14 @@ router.post('/versions/:id/comments', asyncHandler(async (req, res) => {
 router.patch('/comments/:id/resolve', asyncHandler(async (req, res) => {
   const { resolution_notes } = req.body || {};
   const resolved = await CurriculumPublicationService.resolveComment(req.params.id, {
-    resolvedBy: req.superAdmin?.id,
-    resolutionNotes: resolution_notes
+    resolutionNotes: resolution_notes,
+    authorization: req.headers.authorization
   });
   return sendResponse(res, 200, { success: true, data: resolved });
 }));
 
 router.post('/versions/:id/approve', asyncHandler(async (req, res) => {
-  const approved = await CurriculumPublicationService.approveVersion(req.params.id, req.superAdmin?.id);
+  const approved = await CurriculumPublicationService.approveVersion(req.params.id, { authorization: req.headers.authorization });
   return sendResponse(res, 200, { success: true, data: approved });
 }));
 
@@ -211,7 +216,7 @@ router.post('/versions/:id/publish', asyncHandler(async (req, res) => {
   const { release_notes } = req.body || {};
   const result = await CurriculumPublicationService.publishVersion(req.params.id, {
     releaseNotes: release_notes,
-    publishedBy: req.superAdmin?.id
+    authorization: req.headers.authorization
   });
   return sendResponse(res, 200, { success: true, data: result });
 }));
@@ -223,7 +228,7 @@ router.post('/versions/:id/withdraw', asyncHandler(async (req, res) => {
   const result = await CurriculumPublicationService.withdrawVersion(req.params.id, {
     reason,
     replacementVersionId: recommended_replacement_version_id,
-    withdrawnBy: req.superAdmin?.id
+    authorization: req.headers.authorization
   });
 
   return sendResponse(res, 200, { success: true, data: result });
@@ -268,39 +273,13 @@ router.get('/assignments', asyncHandler(async (req, res) => {
   return sendResponse(res, 200, { success: true, data: assignments });
 }));
 
-router.post('/assignments', asyncHandler(async (req, res) => {
-  const { school_id, academic_year_id, curriculum_product_id, curriculum_version_id, auto_upgrade_policy = 'MANUAL' } = req.body || {};
-  if (!school_id || !academic_year_id || !curriculum_product_id || !curriculum_version_id) {
-    return sendResponse(res, 400, { error: 'school_id, academic_year_id, curriculum_product_id, and curriculum_version_id are required' });
-  }
-
-  const [assignment] = await sql`
-    INSERT INTO school_curriculum_assignments (
-      school_id, academic_year_id, curriculum_product_id, curriculum_version_id,
-      status, auto_upgrade_policy, assigned_by
-    ) VALUES (
-      ${Number(school_id)}, ${academic_year_id}, ${curriculum_product_id}, ${curriculum_version_id},
-      'ACTIVE', ${auto_upgrade_policy}, ${req.superAdmin?.id || null}
-    )
-    ON CONFLICT (school_id, academic_year_id, curriculum_product_id)
-    DO UPDATE SET
-      curriculum_version_id = EXCLUDED.curriculum_version_id,
-      auto_upgrade_policy = EXCLUDED.auto_upgrade_policy,
-      status = 'ACTIVE',
-      updated_at = now()
-    RETURNING *;
-  `;
-
-  await sql`
-    INSERT INTO curriculum_assignment_history (
-      school_id, academic_year_id, assignment_id, to_version_id, action, reason, performed_by
-    ) VALUES (
-      ${Number(school_id)}, ${academic_year_id}, ${assignment.id}, ${curriculum_version_id},
-      'ASSIGN', 'Assigned from SuperAdmin Control Plane', ${req.superAdmin?.id || null}
-    );
-  `;
-
-  return sendResponse(res, 201, { success: true, data: assignment });
+router.post('/assignments',asyncHandler(async(req,res)=>{
+  const {school_id,academic_year_id,curriculum_product_id,curriculum_version_id,reason,expected_revision}=req.body||{};
+  const assignment=await CurriculumAuthoringClient.assignment(school_id,'assign',req.headers.authorization,{academicYearId:academic_year_id,productId:curriculum_product_id,targetVersionId:curriculum_version_id,reason,expectedRevision:expected_revision},req.headers['idempotency-key']);
+  return sendResponse(res,201,{success:true,data:assignment});
 }));
-
+for(const operation of ['preview-upgrade','upgrade','withdraw'])router.post(`/schools/:schoolId/assignments/${operation}`,asyncHandler(async(req,res)=>{
+  const result=await CurriculumAuthoringClient.assignment(req.params.schoolId,operation,req.headers.authorization,req.body,req.headers['idempotency-key']);
+  return sendResponse(res,200,{success:true,data:result});
+}));
 module.exports = router;

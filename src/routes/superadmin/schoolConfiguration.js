@@ -25,6 +25,7 @@ const {
 const { effectiveConfig, collectBlockers, publicClusterSnapshot, ASSET_SLOTS } = require('../../services/schoolConfigSchema');
 const { processImageSlot, deriveVariants } = require('../../services/schoolAssetProcessor');
 const { snippetFromDraft, stripGoogleServices, assertPlist } = require('../../services/schoolPackageRender');
+const { storedLibrary } = require('../../services/schoolLibrary');
 const { supabaseStorage, BUCKET } = require('../../services/schoolPackageWorker');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
@@ -137,6 +138,7 @@ async function presentDraft(draft, cluster) {
       height: row.height,
     }])),
     readiness: readiness(draft, presence, cluster),
+    library: await storedLibrary(sql, draft.cluster_id, draft.school_id),
     latest_revision: revisions[0] || null,
     latest_job: latestJob || null,
   };
