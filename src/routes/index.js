@@ -100,6 +100,7 @@ superAdmin.use('/messenger', messengerRouter);
 
 // Content
 superAdmin.use('/content', contentRouter);
+superAdmin.use('/learning-content', require('./superadmin/learningContent'));
 
 // DCGD
 superAdmin.use('/dcgd', dcgdRouter);
