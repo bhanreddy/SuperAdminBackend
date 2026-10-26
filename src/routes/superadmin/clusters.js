@@ -96,12 +96,16 @@ router.get('/', async (req, res) => {
         school_db: {
           supabase_url: c.school_supabase_url,
           supabase_anon_key: c.school_anon_key,
-          backend_url: c.school_backend_url,
+          backend_url: c.cluster_id === config.clusterId && config.clusterBackendUrl
+            ? config.clusterBackendUrl
+            : c.school_backend_url,
         },
         medical_db: {
           supabase_url: c.medical_supabase_url,
           supabase_anon_key: c.medical_anon_key,
-          backend_url: c.medical_backend_url,
+          backend_url: c.cluster_id === config.clusterId && config.clusterBackendUrl
+            ? config.clusterBackendUrl
+            : c.medical_backend_url,
         },
         max_schools: c.max_schools,
         school_count: liveSchoolCount,

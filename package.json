@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "catalyst:prepare": "node scripts/prepare-catalyst.cjs",
     "migrate:rbac": "node src/db/run-migrations.js",
     "migrate:learning-content": "node scripts/migrate-learning-content.js",
     "test:learning-content": "node --test test/learningContent/*.test.js",

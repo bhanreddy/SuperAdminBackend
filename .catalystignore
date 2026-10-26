@@ -1,0 +1,9 @@
+.env
+.env.*
+.git
+.git/**
+app-config.json
+scratch-*
+tests/**
+docs/**
+*.db

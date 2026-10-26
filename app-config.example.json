@@ -1,0 +1,9 @@
+{
+  "command": "npm start",
+  "build_path": ".catalyst-build",
+  "stack": "node22",
+  "memory": 512,
+  "catalyst_auth": false,
+  "env_variables": {},
+  "scripts": {}
+}

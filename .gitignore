@@ -11,3 +11,8 @@ test_db.js
 .DS_Store
 
 .school-library-backups/
+
+# Catalyst build output and local configuration containing deployment secrets
+.catalyst-build/
+app-config.json
+catalyst-debug.log

@@ -11,7 +11,8 @@ function postgresOptions(connectionString) {
     ssl: local ? false : { rejectUnauthorized: false },
     idle_timeout: 20,
     max_lifetime: 60 * 30,
-    max: 8,
+    // Leave room for other AppSail instances and local development.
+    max: 3,
     // Transaction-mode pooler (port 6543) does not keep named prepared statements.
     prepare: pooler ? false : undefined,
   };

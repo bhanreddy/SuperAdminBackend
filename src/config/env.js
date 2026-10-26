@@ -35,10 +35,13 @@ const boundedInt = (key, fallback, ceiling) => {
 };
 
 const config = {
-  port: Number(optional('PORT', '4000')),
+  port: Number(optional('X_ZOHO_CATALYST_LISTEN_PORT', optional('PORT', '4000'))),
   // Canonical public backend origin used in certificate verification links.
   // When omitted, document rendering safely derives the current request origin.
   publicBaseUrl: optional('PUBLIC_BASE_URL', ''),
+  clusterId: optional('CLUSTER_ID', 'cluster_a'),
+  // Override only this deployment's cluster URL, without changing shared registry rows.
+  clusterBackendUrl: optional('CLUSTER_BACKEND_URL', '').replace(/\/+$/, ''),
 
   // School Supabase project (JWT auth + super_admins/founders + storage)
   schoolSupabase: {

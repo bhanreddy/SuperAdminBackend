@@ -31,7 +31,7 @@ function postgresOptions(connectionString) {
     ssl: local ? false : { rejectUnauthorized: false },
     idle_timeout: 20,
     max_lifetime: 60 * 30,
-    max: 8,
+    max: 3,
     prepare: pooler ? false : undefined,
   };
 }
