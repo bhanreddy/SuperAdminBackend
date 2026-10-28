@@ -10,6 +10,8 @@ const { imageKind } = require('../../utils/uploadBytes');
 const { resolveCrmScope } = require('../../services/crm/accessPolicy');
 const { sendCrmError } = require('../../services/crm/errors');
 const sales = require('../../services/crm/salesCrm');
+const { createBooksService } = require('../../services/books/service');
+const { date: booksDate } = require('../../services/books/domain');
 const { salesReport } = require('../../services/crm/reporting');
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -88,77 +90,54 @@ router.get('/analytics', async (req, res) => {
 router.get('/expenses', async (req, res) => {
   try {
     const { status, category } = req.query;
-    let rows;
-    if (status && status !== 'ALL' && category && category !== 'ALL') {
-      rows = await sql`
-        SELECT id, title, description, amount, category, status, receipt_url,
-               created_by_founder_id, approved_by_founder_id, rejection_reason,
-               created_at, updated_at
-        FROM expenses
-        WHERE status = ${status} AND category = ${category} AND school_id IS NULL
-        ORDER BY created_at DESC
-      `;
-    } else if (status && status !== 'ALL') {
-      rows = await sql`
-        SELECT id, title, description, amount, category, status, receipt_url,
-               created_by_founder_id, approved_by_founder_id, rejection_reason,
-               created_at, updated_at
-        FROM expenses
-        WHERE status = ${status} AND school_id IS NULL
-        ORDER BY created_at DESC
-      `;
-    } else if (category && category !== 'ALL') {
-      rows = await sql`
-        SELECT id, title, description, amount, category, status, receipt_url,
-               created_by_founder_id, approved_by_founder_id, rejection_reason,
-               created_at, updated_at
-        FROM expenses
-        WHERE category = ${category} AND school_id IS NULL
-        ORDER BY created_at DESC
-      `;
-    } else {
-      rows = await sql`
-        SELECT id, title, description, amount, category, status, receipt_url,
-               created_by_founder_id, approved_by_founder_id, rejection_reason,
-               created_at, updated_at
-        FROM expenses
-        WHERE school_id IS NULL
-        ORDER BY created_at DESC
-      `;
-    }
+    const rows = await sql`
+      SELECT e.*, l.journal_id AS books_journal_id, l.state AS books_state,
+             p.journal_id AS books_payment_journal_id
+      FROM expenses e
+      LEFT JOIN public.books_finance_links l ON l.source_type='expense' AND l.source_id=e.id AND l.component='accrual'
+      LEFT JOIN public.books_finance_links p ON p.source_type='expense' AND p.source_id=e.id AND p.component='payment' AND p.state='posted'
+      WHERE e.school_id IS NULL
+        AND (${status || 'ALL'}='ALL' OR e.status=${status || 'ALL'})
+        AND (${category || 'ALL'}='ALL' OR e.category=${category || 'ALL'})
+      ORDER BY COALESCE(e.expense_date,(e.created_at AT TIME ZONE 'Asia/Kolkata')::date) DESC,e.created_at DESC
+    `;
     return sendResponse(res, 200, rows);
   } catch (err) {
     console.error('Error listing expenses:', err);
+    if (['42P01','42703'].includes(err.code)) return res.status(503).json({ error: 'Apply the Books finance connections migration before using expenses.' });
     return res.status(500).json({ error: 'Failed to list expenses' });
   }
 });
 
 router.post('/expenses', requireCrmWrite, async (req, res) => {
   try {
-    const { title, description, amount, category, receipt_url } = req.body;
-    if (!title || !amount || !category) {
+    const { title, description, amount, category, receipt_url, expense_date } = req.body;
+    if (!String(title || '').trim() || !/^\d+(\.\d{1,2})?$/.test(String(amount)) || Number(amount) <= 0 || !['MARKETING','HOSTING','TOOLS','TRAVEL','SALARY','MISC'].includes(category)) {
       return res.status(400).json({ error: 'title, amount, and category are required' });
     }
+    const transactionDate = booksDate(expense_date || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), 'Expense date');
     const [row] = await sql`
-      INSERT INTO expenses (title, description, amount, category, receipt_url, status, created_by_founder_id)
-      VALUES (${title}, ${description || null}, ${amount}, ${category}, ${receipt_url || null}, 'PENDING', ${req.superAdmin.founderId || null})
+      INSERT INTO expenses (title, description, amount, category, receipt_url, status, created_by_founder_id, expense_date)
+      VALUES (${title}, ${description || null}, ${amount}, ${category}, ${receipt_url || null}, 'PENDING', ${req.superAdmin.founderId || null}, ${transactionDate}::date)
       RETURNING *
     `;
     return sendResponse(res, 201, row);
   } catch (err) {
     console.error('Error creating expense:', err);
-    return res.status(500).json({ error: 'Failed to create expense' });
+    return res.status(err.status || 500).json({ error: err.status ? err.message : 'Failed to create expense' });
   }
 });
 
 router.post('/expenses/:id/approve', requireFinanceApproval, async (req, res) => {
   try {
     const { id } = req.params;
-    await sql`
+    const [row] = await sql`
       UPDATE expenses
       SET status = 'APPROVED', approved_by_founder_id = ${req.superAdmin.founderId || null}, rejection_reason = NULL
-      WHERE id = ${id}
+      WHERE id = ${id} AND school_id IS NULL AND status IN ('PENDING','APPROVED')
+      RETURNING id
     `;
+    if (!row) return res.status(409).json({ error: 'Expense is missing or has already been rejected' });
     return sendResponse(res, 200, { success: true });
   } catch (err) {
     console.error('Error approving expense:', err);
@@ -170,16 +149,39 @@ router.post('/expenses/:id/reject', requireFinanceApproval, async (req, res) => 
   try {
     const { id } = req.params;
     const { reason } = req.body;
-    await sql`
+    if (!String(reason || '').trim()) return res.status(400).json({ error: 'A rejection reason is required' });
+    const [row] = await sql`
       UPDATE expenses
       SET status = 'REJECTED', approved_by_founder_id = ${req.superAdmin.founderId || null}, rejection_reason = ${reason || null}
-      WHERE id = ${id}
+      WHERE id = ${id} AND school_id IS NULL AND status='PENDING'
+      RETURNING id
     `;
+    if (!row) return res.status(409).json({ error: 'Only pending expenses can be rejected' });
     return sendResponse(res, 200, { success: true });
   } catch (err) {
     console.error('Error rejecting expense:', err);
     return res.status(500).json({ error: 'Failed to reject expense' });
   }
+});
+
+// Marking paid records a ledger fact; it does not initiate a transfer.
+router.post('/expenses/:id/paid', requireFinanceApproval, async (req, res) => {
+  try {
+    const account = req.body.account_code || '1010';
+    const row = await sql.begin(async tx => {
+      const [expense] = await tx`SELECT * FROM expenses WHERE id=${req.params.id}::uuid AND school_id IS NULL FOR UPDATE`;
+      if (!expense || expense.status !== 'APPROVED') throw Object.assign(new Error('Only approved expenses can be marked paid'), { status: 409 });
+      if (expense.paid_at) {
+        if (expense.paid_account !== account) throw Object.assign(new Error('Expense is already paid from a different account'), { status: 409 });
+        return expense;
+      }
+      const [cash] = await tx`SELECT code FROM public.books_accounts WHERE code=${account} AND is_cash`;
+      if (!cash) throw Object.assign(new Error('Choose a cash or bank account'), { status: 400 });
+      const [updated] = await tx`UPDATE expenses SET paid_at=now(),paid_account=${account} WHERE id=${expense.id} RETURNING *`;
+      return updated;
+    });
+    return sendResponse(res, 200, row);
+  } catch (err) { return res.status(err.status || 500).json({ error: err.status ? err.message : 'Unable to record expense payment' }); }
 });
 
 router.post('/expenses/:id/receipt', requireCrmWrite, upload.single('file'), async (req, res) => {
@@ -305,55 +307,40 @@ router.get('/collections', async (req, res) => {
   }
 });
 
-// Financial summary for the Founder Console. Business units currently own
-// collections, not expenses, so expense totals deliberately remain platform-wide.
+// Financial totals use the Nexsyrus Books ledger. Business unit selection
+// controls the operational collection breakdown, while ledger totals stay platform-wide.
 router.get('/financial-summary', async (req, res) => {
   try {
     const { period = 'THIS_MONTH', business_unit_id } = req.query;
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
-    let collectionPeriod = sql``;
-    let expensePeriod = sql``;
-    let billingPeriod = sql``;
-
-    if (period === 'THIS_MONTH') {
-      collectionPeriod = sql`AND c.year = ${year} AND c.month = ${month}`;
-      expensePeriod = sql`AND EXTRACT(YEAR FROM e.created_at) = ${year} AND EXTRACT(MONTH FROM e.created_at) = ${month}`;
-      billingPeriod = sql`AND EXTRACT(YEAR FROM b.issued_at) = ${year} AND EXTRACT(MONTH FROM b.issued_at) = ${month}`;
-    } else if (period === 'LAST_MONTH') {
-      const lastMonth = month === 1 ? 12 : month - 1;
-      const lastYear = month === 1 ? year - 1 : year;
-      collectionPeriod = sql`AND c.year = ${lastYear} AND c.month = ${lastMonth}`;
-      expensePeriod = sql`AND EXTRACT(YEAR FROM e.created_at) = ${lastYear} AND EXTRACT(MONTH FROM e.created_at) = ${lastMonth}`;
-      billingPeriod = sql`AND EXTRACT(YEAR FROM b.issued_at) = ${lastYear} AND EXTRACT(MONTH FROM b.issued_at) = ${lastMonth}`;
-    } else if (period === 'THIS_YEAR') {
-      collectionPeriod = sql`AND c.year = ${year}`;
-      expensePeriod = sql`AND EXTRACT(YEAR FROM e.created_at) = ${year}`;
-      billingPeriod = sql`AND EXTRACT(YEAR FROM b.issued_at) = ${year}`;
-    }
-
-    const unitFilter = business_unit_id && business_unit_id !== 'ALL'
-      ? sql`AND c.business_unit_id = ${business_unit_id}`
-      : sql``;
-    const [[revenue], [expenses], [billing]] = await Promise.all([
-      sql`SELECT COALESCE(SUM(c.amount), 0) AS total FROM collections c WHERE c.status = 'APPROVED' ${collectionPeriod} ${unitFilter}`,
-      sql`SELECT COALESCE(SUM(e.amount), 0) AS total FROM expenses e WHERE e.status = 'APPROVED' AND e.school_id IS NULL ${expensePeriod}`,
-      // Billing documents are marked issued only once the founder records the
-      // client charge. Cancelled documents are excluded from collected money.
-      sql`SELECT COALESCE(SUM(b.total_amount), 0) AS total FROM billing_documents b WHERE b.status = 'issued' ${billingPeriod}`,
-    ]);
-    const businessUnitCollections = Number(revenue.total || 0);
-    const clientBillingCollected = Number(billing.total || 0);
-    const totalRevenue = businessUnitCollections + clientBillingCollected;
-    const totalExpenses = Number(expenses.total || 0);
+    const day = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    const currentYear = Number(day.slice(0,4)), currentMonth = Number(day.slice(5,7));
+    let from = '2000-01-01', to = day;
+    if (period === 'THIS_MONTH') from = `${currentYear}-${String(currentMonth).padStart(2,'0')}-01`;
+    else if (period === 'LAST_MONTH') {
+      const previous = new Date(Date.UTC(currentYear,currentMonth-1,0));
+      to = previous.toISOString().slice(0,10); from = to.slice(0,7) + '-01';
+    } else if (period === 'THIS_YEAR') from = `${currentYear}-01-01`;
+    const [collectionBreakdown] = await sql`SELECT COALESCE(sum(c.amount),0) AS total FROM collections c
+      WHERE c.status='APPROVED' AND (c.created_at AT TIME ZONE 'Asia/Kolkata')::date BETWEEN ${from} AND ${to}
+      AND (${business_unit_id || 'ALL'}='ALL' OR c.business_unit_id::text=${business_unit_id || 'ALL'})`;
+    const businessUnitCollections = Number(collectionBreakdown.total);
+    const ledger = await createBooksService(sql).reports({ from, to });
+    const [receipts] = await sql`SELECT COALESCE(sum(l.debit-l.credit),0) AS total
+      FROM books_journal_lines l JOIN books_journals j ON j.id=l.journal_id
+      LEFT JOIN books_journals original ON original.id=j.reversal_of
+      JOIN books_accounts a ON a.code=l.account_code AND a.is_cash
+      WHERE COALESCE(original.source,j.source)='platform_billing_payment' AND j.date BETWEEN ${from} AND ${to}`;
+    const totalRevenue = ledger.income / 100;
+    const totalExpenses = ledger.expenses / 100;
     const netProfit = totalRevenue - totalExpenses;
     return sendResponse(res, 200, {
       period,
       business_unit_id: business_unit_id || 'ALL',
       revenue: totalRevenue,
       business_unit_collections: businessUnitCollections,
-      client_billing_collected: clientBillingCollected,
+      client_billing_collected: Number(receipts.total) / 100,
+      accounting_source: 'books',
+      from, to,
       expenses: totalExpenses,
       net_profit: netProfit,
       profit_margin: totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : null,

@@ -357,6 +357,7 @@ function failBilling(res, err, context) {
     console.error(`[billing] ${context} :: DUPLICATE_DOCUMENT_NUMBER :: ${err.message}`);
     return sendError(res, 409, 'DUPLICATE_DOCUMENT_NUMBER', 'A document with this number already exists — please retry');
   }
+  if (pgCode === '23514' || pgCode === '22P02') return sendError(res, 422, 'FINANCE_VALIDATION', err.message);
   // 42P01 undefined_table / 42703 undefined_column — migration not applied yet.
   if (pgCode === '42P01' || pgCode === '42703') {
     console.error(`[billing] ${context} :: NOT_MIGRATED :: pg=${pgCode} :: ${err.message}`);
@@ -444,6 +445,7 @@ function buildDocumentDraft(body, config) {
   });
 
   return {
+    settles_invoice_id: documentType === 'receipt' ? body.settles_invoice_id || null : null,
     document_type: documentType,
     client_id: client.id || null,
     client_kind: client.kind === 'school' || client.kind === 'medical' ? client.kind : null,
@@ -565,7 +567,7 @@ router.post('/documents/issue', async (req, res) => {
 
       const [row] = await tx`
         INSERT INTO billing_documents (
-          id, document_number, document_type, financial_year,
+          id, document_number, document_type, financial_year, settles_invoice_id,
           client_id, client_kind, client_cluster_id,
           client_legal_name, client_gstin, client_billing_address, client_state_code,
           supplier_gstin, supplier_state_code, place_of_supply_state_code,
@@ -573,7 +575,7 @@ router.post('/documents/issue', async (req, res) => {
           cgst_rate, cgst_amount, sgst_rate, sgst_amount, igst_rate, igst_amount,
           total_amount, status, pdf_url, issued_at, created_by
         ) VALUES (
-          ${id}, ${documentNumber}, ${draft.document_type}, ${fyFull},
+          ${id}, ${documentNumber}, ${draft.document_type}, ${fyFull}, ${draft.settles_invoice_id},
           ${draft.client_id}, ${draft.client_kind}, ${draft.client_cluster_id},
           ${draft.client_legal_name}, ${draft.client_gstin}, ${draft.client_billing_address}, ${draft.client_state_code},
           ${draft.supplier_gstin}, ${draft.supplier_state_code}, ${draft.place_of_supply_state_code},
@@ -602,6 +604,21 @@ router.post('/documents/issue', async (req, res) => {
   } catch (err) {
     return failBilling(res, err, 'POST /documents/issue');
   }
+});
+
+// Receipts can settle an existing client invoice without recognizing revenue twice.
+router.get('/invoices/outstanding', async (req, res) => {
+  try {
+    const name = String(req.query.customer || '').trim();
+    const rows = await sql`
+      SELECT b.*, b.total_amount-COALESCE(p.paid,0) AS outstanding_amount
+      FROM billing_documents b
+      LEFT JOIN (SELECT settles_invoice_id,sum(total_amount) paid FROM billing_documents WHERE status='issued' GROUP BY settles_invoice_id) p ON p.settles_invoice_id=b.id
+      WHERE b.status='issued' AND b.document_type='tax_invoice'
+        AND b.client_legal_name=${name} AND b.total_amount>COALESCE(p.paid,0)
+      ORDER BY b.issued_at DESC LIMIT 100`;
+    return sendResponse(res, 200, rows);
+  } catch (err) { return failBilling(res, err, 'GET /invoices/outstanding'); }
 });
 
 // ─── GET /documents — paginated + filterable list ────────────────────────────

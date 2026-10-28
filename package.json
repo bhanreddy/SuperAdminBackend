@@ -16,7 +16,9 @@
     "test": "node --test --test-concurrency=1 test/crm/*.test.js",
     "test:school-package": "node --test --test-concurrency=1 test/schoolPackage/*.test.js",
     "migrate:crm": "node src/db/applyCrmMigrations.js",
-    "crm:import-worker": "node -e \"require('./src/services/crm/importWorker').startImportWorker(); setInterval(() => {}, 1000)\""
+    "crm:import-worker": "node -e \"require('./src/services/crm/importWorker').startImportWorker(); setInterval(() => {}, 1000)\"",
+    "migrate:books": "node scripts/migrate-books.js",
+    "test:books": "node --test --test-concurrency=1 test/books/*.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",

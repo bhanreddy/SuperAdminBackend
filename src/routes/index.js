@@ -107,6 +107,7 @@ superAdmin.use('/dcgd', dcgdRouter);
 
 // Client Billing (NexSyrus SaaS invoicing — tax invoice + receipt) under /billing/*
 superAdmin.use('/billing', billingRouter);
+superAdmin.use('/books', require('./superadmin/books'));
 
 // Festival posters (upload + manage) under /posters/*
 superAdmin.use('/posters', postersRouter);

@@ -3,7 +3,10 @@
  * Defines all system roles, permissions catalog, and role-to-permission mappings.
  */
 
+const {BOOKS_PERMISSIONS,BOOKS_PERMISSION_SET}=require('./booksPermissions');
 const ROLES = {
+  CA: 'CA',
+  CA_LEAD: 'CA_LEAD',
   FOUNDER: 'FOUNDER',
   SUPER_ADMIN: 'SUPER_ADMIN',
   SALES_MANAGER: 'SALES_MANAGER',
@@ -80,9 +83,10 @@ const PERMISSIONS = {
   CURRICULUM_PUBLISH: 'curriculum.publish',
 };
 
-const ALL_PERMISSIONS = Object.values(PERMISSIONS);
+const ALL_PERMISSIONS = [...Object.values(PERMISSIONS),...BOOKS_PERMISSIONS];
 
 const ROLE_PERMISSIONS = {
+  [ROLES.CA]: [],
   [ROLES.FOUNDER]: ALL_PERMISSIONS,
   [ROLES.SUPER_ADMIN]: ALL_PERMISSIONS,
 
@@ -255,10 +259,12 @@ function hasPermission(role, permission) {
 function getEffectivePermissions(role, overrides = []) {
   const norm = normalizeRole(role);
   if (norm === ROLES.FOUNDER || norm === ROLES.SUPER_ADMIN) return [...ALL_PERMISSIONS];
+  if (norm === ROLES.CA_LEAD) return [...BOOKS_PERMISSIONS];
 
   const effective = new Set(getRolePermissions(norm));
   for (const override of overrides) {
     if (!override || !ALL_PERMISSIONS.includes(override.permission)) continue;
+    if(norm===ROLES.CA&&!BOOKS_PERMISSION_SET.has(override.permission))continue;
     if (String(override.effect).toUpperCase() === 'DENY') effective.delete(override.permission);
     if (String(override.effect).toUpperCase() === 'GRANT') effective.add(override.permission);
   }

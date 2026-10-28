@@ -207,6 +207,10 @@ router.put('/:id/permissions', requirePermission(PERMISSIONS.USERS_MANAGE), asyn
 
     const [target] = await sql`SELECT id, employee_id, role FROM internal_users WHERE id = ${req.params.id} LIMIT 1`;
     if (!target) return res.status(404).json({ error: 'User not found' });
+    if([ROLES.CA,ROLES.CA_LEAD].includes(target.role)){
+      return res.status(400).json({error:'Manage company-specific CA permissions from Books → CA access.'});
+
+    }
     if ([ROLES.FOUNDER, ROLES.SUPER_ADMIN].includes(target.role)) {
       return res.status(400).json({ error: 'Founder permissions cannot be restricted' });
     }
@@ -603,6 +607,7 @@ router.post('/', requirePermission(PERMISSIONS.USERS_CREATE), async (req, res) =
     const normEmployeeId = employee_id.trim().toUpperCase();
     const normRole = normalizeRole(role);
     if (!isKnownRole(normRole)) return res.status(400).json({ error: 'Unknown role' });
+    if([ROLES.CA,ROLES.CA_LEAD].includes(normRole))return res.status(400).json({error:'Create CA accounts from Books → CA access so their permissions and temporary password are configured correctly.'});
 
     // Enforce reporting manager for active non-root employees
     if (status === 'ACTIVE' && !isRootRole(normRole)) {
@@ -747,6 +752,7 @@ router.patch('/:id', requirePermission(PERMISSIONS.USERS_MANAGE), async (req, re
     const updatedFullName = updates.full_name !== undefined ? updates.full_name : existing.full_name;
     const updatedPhone = updates.phone !== undefined ? updates.phone : existing.phone;
     const updatedRole = updates.role !== undefined ? updates.role : existing.role;
+    if([ROLES.CA,ROLES.CA_LEAD].includes(existing.role)||[ROLES.CA,ROLES.CA_LEAD].includes(updatedRole))return res.status(400).json({error:'Manage CA accounts from Books → CA access. CA accounts cannot be converted to another role.'});
     const updatedJobTitle = updates.job_title !== undefined ? updates.job_title : existing.job_title;
     const updatedManagerId = updates.manager_id !== undefined ? updates.manager_id : existing.manager_id;
     const updatedTerritory = updates.territory !== undefined ? updates.territory : existing.territory;
@@ -861,9 +867,10 @@ router.post('/:id/reset-password', requirePermission(PERMISSIONS.USERS_MANAGE), 
       return res.status(400).json({ error: 'New password must be at least 8 characters' });
     }
 
-    const [user] = await sql`SELECT id, auth_user_id, employee_id, email FROM internal_users WHERE id = ${id} LIMIT 1`;
+    const [user] = await sql`SELECT id, auth_user_id, employee_id, email,role FROM internal_users WHERE id = ${id} LIMIT 1`;
     if (!user) return res.status(404).json({ error: 'User not found' });
 
+    if([ROLES.CA,ROLES.CA_LEAD].includes(user.role))return res.status(400).json({error:'Reset the CA temporary password from Books → CA access.'});
     const newHash = hashPassword(new_password);
     await sql`
       UPDATE internal_users

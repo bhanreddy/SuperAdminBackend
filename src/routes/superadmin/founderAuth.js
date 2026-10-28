@@ -22,7 +22,8 @@ function normalizeInput(val) {
 }
 
 // POST /api/super-admin/auth/login
-router.post('/login', async (req, res) => {
+router.post(['/login','/ca/login'], async (req, res) => {
+  const caOnly=req.path==='/ca/login';
   try {
     const rawIdentifier = req.body.identifier || req.body.email;
     const password = req.body.password;
@@ -38,7 +39,8 @@ router.post('/login', async (req, res) => {
     // 1. Look up user in internal_users
     const [internalUser] = await sql`
       SELECT id, auth_user_id, employee_id, full_name, email, phone, password_hash,
-             role, manager_id, territory, status, token_version
+             role, manager_id, territory, status, token_version,
+             COALESCE((to_jsonb(internal_users)->>'must_change_password')::boolean,false) AS must_change_password
       FROM internal_users
       WHERE LOWER(TRIM(email)) = ${identifierLower}
          OR phone = ${identifier}
@@ -46,6 +48,7 @@ router.post('/login', async (req, res) => {
       LIMIT 1
     `;
 
+    if(caOnly&&![ROLES.CA,ROLES.CA_LEAD].includes(internalUser?.role))return res.status(401).json({error:'Invalid CA credentials'});
     let user = internalUser;
     let verifiedAuthUserId = internalUser?.auth_user_id || null;
 
@@ -116,7 +119,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Fallback or secondary check with Supabase Auth
-    if (!passwordValid && user.email) {
+    if (!passwordValid && user.email && ![ROLES.CA,ROLES.CA_LEAD].includes(user.role)) {
       try {
         const { data: sbData, error: sbErr } = await schoolSupabase.auth.signInWithPassword({
           email: user.email,
@@ -231,6 +234,7 @@ router.post('/login', async (req, res) => {
         status: user.status,
         manager_id: user.manager_id,
         territory: user.territory,
+        mustChangePassword:Boolean(user.must_change_password),
       },
       session,
       role: user.role,
@@ -317,8 +321,9 @@ router.post('/change-password', authenticateUser, async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
 
+    if([ROLES.CA,ROLES.CA_LEAD].includes(req.user.role)&&(typeof newPassword!=='string'||newPassword.length<12||newPassword.length>256))return res.status(400).json({error:'CA passwords must contain 12–256 characters'});
     const newHash = hashPassword(newPassword);
-    await sql`
+    if([ROLES.CA,ROLES.CA_LEAD].includes(req.user.role)){await sql`UPDATE internal_users SET password_hash=${newHash},must_change_password=false,token_version=token_version+1,updated_at=now() WHERE id=${req.user.id}`;}else await sql`
       UPDATE internal_users
       SET password_hash = ${newHash}, updated_at = NOW()
       WHERE id = ${req.user.id}
@@ -326,7 +331,7 @@ router.post('/change-password', authenticateUser, async (req, res) => {
 
     // Also update Supabase auth user if exists
     try {
-      await schoolSupabaseAdmin.auth.admin.updateUserById(req.user.authUserId || req.user.id, { password: newPassword });
+      if(![ROLES.CA,ROLES.CA_LEAD].includes(req.user.role))await schoolSupabaseAdmin.auth.admin.updateUserById(req.user.authUserId || req.user.id, { password: newPassword });
     } catch {
       // ignore
     }

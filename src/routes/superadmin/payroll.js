@@ -216,7 +216,9 @@ async function processPayrollPeriod(year, month) {
       allowance_pay=EXCLUDED.allowance_pay,gross_pay=EXCLUDED.gross_pay,pf_deduction=EXCLUDED.pf_deduction,
       esi_deduction=EXCLUDED.esi_deduction,other_deductions=EXCLUDED.other_deductions,total_deductions=EXCLUDED.total_deductions,
       net_pay=EXCLUDED.net_pay,status=CASE WHEN payroll_runs.status='PAID' THEN 'PAID' ELSE 'PROCESSED' END,
-      calculation_snapshot=EXCLUDED.calculation_snapshot,processed_at=now(),updated_at=now() RETURNING *`;
+      calculation_snapshot=EXCLUDED.calculation_snapshot,processed_at=now(),updated_at=now()
+    WHERE payroll_runs.status<>'PAID' RETURNING *`;
+    if (!run) continue; // Paid runs retain their original salary and accounting facts.
     await sql`INSERT INTO employee_documents (employee_id,payroll_run_id,document_type,document_number,title,payload)
       VALUES (${employee.id},${run.id},'PAYSLIP',${docNumber('PAYSLIP', employee.employee_code, year, month)},${TITLES.PAYSLIP},${sql.json({ year, month })})
       ON CONFLICT (payroll_run_id,document_type) WHERE document_type='PAYSLIP'
@@ -235,7 +237,7 @@ router.post('/runs/process', async (req, res) => {
 
 router.post('/runs/:id/paid', async (req, res) => {
   try {
-    const [row] = await sql`UPDATE payroll_runs SET status='PAID',paid_at=now(),updated_at=now() WHERE id=${req.params.id}::uuid RETURNING *`;
+    const [row] = await sql`UPDATE payroll_runs SET status='PAID',paid_at=COALESCE(paid_at,now()),updated_at=now() WHERE status IN ('PROCESSED','PAID') AND id=${req.params.id}::uuid RETURNING *`;
     if (!row) return sendError(res, 404, 'NOT_FOUND', 'Payroll record not found');
     return sendResponse(res, 200, row);
   } catch (err) { return sendError(res, 500, 'PAYROLL_ERROR', err.message); }

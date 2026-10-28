@@ -93,7 +93,8 @@ async function authenticateUser(req, res, next) {
     try {
       [userRow] = await sql`
         SELECT id, auth_user_id, employee_id, full_name, email, phone, role, status,
-               manager_id, territory, token_version
+               manager_id, territory, token_version,
+               COALESCE((to_jsonb(internal_users)->>'must_change_password')::boolean,false) AS must_change_password
         FROM internal_users
         WHERE id = ${userId}
            OR auth_user_id = ${userId}
@@ -105,6 +106,7 @@ async function authenticateUser(req, res, next) {
     }
 
     if (userRow) {
+      if([ROLES.CA,ROLES.CA_LEAD].includes(userRow.role)&&payload.tokenSource!=='internal')return res.status(401).json({error:'Use your CA account login'});
       if (userRow.status !== 'ACTIVE') {
         return res.status(401).json({
           error: `Access denied. Account is ${String(userRow.status).toLowerCase()}. Please contact an administrator.`,
@@ -138,7 +140,7 @@ async function authenticateUser(req, res, next) {
         WHERE user_id = ${userRow.id}
       `;
       const permissions = getEffectivePermissions(normRole, overrides);
-      const assignedSchoolIds = await loadSchoolScope(userRow.id, isFounder);
+      const assignedSchoolIds = [ROLES.CA,ROLES.CA_LEAD].includes(normRole) ? [] : await loadSchoolScope(userRow.id, isFounder);
 
       req.user = {
         id: userRow.id,
@@ -156,6 +158,7 @@ async function authenticateUser(req, res, next) {
         isFounder,
         sessionId: payload.tokenSource === 'internal' ? payload.sid : null,
         tokenSource: payload.tokenSource,
+        mustChangePassword:Boolean(userRow.must_change_password),
       };
       req.superAdmin = {
         id: userRow.id,
@@ -165,6 +168,12 @@ async function authenticateUser(req, res, next) {
         founderRole: isFounder ? 'FOUNDER' : null,
         role: normRole,
       };
+      if ([ROLES.CA,ROLES.CA_LEAD].includes(normRole)) {
+        const path = req.originalUrl.split('?')[0].replace(/\/+$/, '');
+        const accountPath = ['/api/super-admin/auth/me', '/api/super-admin/auth/logout', '/api/super-admin/auth/change-password'].includes(path);
+        if (req.user.mustChangePassword && !accountPath) return res.status(403).json({ error: 'PASSWORD_CHANGE_REQUIRED', details: 'Change your temporary password before accessing Books.' });
+        if (!accountPath && !/^\/api\/super-admin\/books(?:\/|$)/.test(path)) return res.status(403).json({ error: 'CA_BOOKS_ONLY', details: 'This account can access Books only.' });
+      }
       return next();
     }
 
