@@ -1,0 +1,23 @@
+env: load .env
+env: export EXPO_PUBLIC_SUPERADMIN_API_URL EXPO_PUBLIC_SUPERADMIN_API_URL_WEB
+Starting Metro Bundler
+transform[stderr]: (node:13985) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+transform[stderr]: (Use `node --trace-warnings ...` to show where the warning was created)
+Web Bundled 1501ms (node_modules/expo-router/entry.js)
+
+Exporting 1 bundle for web:
+_expo/static/js/web/entry-69d3bd1fbaaae77889cde3bc3493172b.js (5.12 MB)
+
+Exporting 10 files:
+assets/assets/logo.3a782add8e83674a8e7a49ae84218288.png (354 kB)
+assets/node_modules/@react-navigation/elements/lib/module/assets/back-icon-mask.5223c8d9b0d08b82a5670fb5f71faf78.png (913 B)
+assets/node_modules/@react-navigation/elements/lib/module/assets/back-icon.35ba0eaec5a4f5ed12ca16fabeae451d.png (207 B)
+assets/node_modules/expo-router/assets/error.563d5e3294b67811d0a1aede6f601e30.png (516 B)
+assets/node_modules/expo-router/assets/file.b6c297a501e289394b0bc5dc69c265e6.png (158 B)
+assets/node_modules/expo-router/assets/forward.9d9c5644f55c2f6e4b7f247c378b2fe9.png (250 B)
+assets/node_modules/expo-router/assets/pkg.5974eb3e1c5314e8d5a822702d7d0740.png (429 B)
+favicon.ico (14.5 kB)
+index.html (1.24 kB)
+metadata.json (49 B)
+
+App exported to: /tmp/nexsyrus-connect-web-export-final

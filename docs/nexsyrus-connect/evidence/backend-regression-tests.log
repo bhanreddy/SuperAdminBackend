@@ -1,0 +1,572 @@
+✔ separate CA entry rejects founder and unknown accounts without creating sessions (1794.874708ms)
+✔ temporary password allows only profile, logout and password change, then invalidates the old session (85.879875ms)
+✔ zero-grant CA receives no records and cannot read or manage any module or other SuperAdmin area (21.7105ms)
+✔ grants and revocations apply immediately to the same access token; directory kinds remain scoped (16.856083ms)
+✔ view-only invoices cannot edit, post, void, pay, print, convert or read bills by ID (38.915083ms)
+✔ reports and dashboard grants are separate; dashboard excludes detailed ledger and tax records (21.798083ms)
+✔ supporting-file library and downloads cannot bypass a linked document permission (18.1885ms)
+✔ CA ignores non-Books privilege overrides and non-internal tokens; cannot grant itself access (4.16775ms)
+✔ owner-only account operations validate grants, store salted hashes and audit without passwords (48.975708ms)
+✔ ledger details, reporting classifications and report validation enforce separate grants (26.787375ms)
+✔ suspension, reactivation and reset revoke sessions; CA credentials never fall back to Supabase (108.779083ms)
+✔ lead CA has full accounting across separate companies and manages only their own ordinary CA team (236.01075ms)
+✔ expense approval accrues, repeated approval and receipt edits do not duplicate, paid clears payable (726.3445ms)
+✔ source corrections reverse immutable journals and school expenses never enter platform books (9.211459ms)
+✔ collections post only on approval and rejection reverses both cash and revenue (4.748584ms)
+✔ tax invoice, partial receipt and cancellation reconcile receivables without duplicate revenue (31.275625ms)
+✔ standalone receipt records non-tax income and reverses on cancellation (3.43775ms)
+✔ payroll accrues gross cost, statutory deductions and net payable; paid only clears net (6.565958ms)
+✔ bad accounting rolls the source write back instead of leaving a disconnected approval (1.658583ms)
+✔ migration is repeatable and historical import is explicit, bounded and idempotent (22.563459ms)
+✔ company isolation keeps central sources out of secondary company reports and imports (1.097625ms)
+✔ Books connection endpoints enforce company memberships and separate viewing from historical import (79.311208ms)
+✔ a first receipt atomically connects its historical invoice before settling receivables (5.143583ms)
+✔ historical import stops at 200 source rows and resumes without repeating entries (160.344791ms)
+Error creating expense: BooksError: Expense date must be a valid YYYY-MM-DD date
+    at ensure (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/books/domain.js:9:25)
+    at date (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/books/domain.js:23:3)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/routes/superadmin/founderCrm.js:118:29
+    at Layer.handle [as handle_request] (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/route.js:149:13)
+    at requireCrmWrite (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/middleware/crmAccess.js:3:71)
+    at Layer.handle [as handle_request] (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/layer.js:95:5) {
+  status: 400
+}
+✔ expense source APIs persist dates, reject invalid transitions and clear payables once; summary matches Books (74.133833ms)
+✔ empty statements reconcile, strict dates and pagination reject invalid input (713.247541ms)
+✔ P&L uses the inclusive period; balance sheet includes prior earnings and excludes future/draft records (22.474083ms)
+✔ cash flow separates activities, excludes transfers/non-cash entries and flags ambiguous journals (22.485708ms)
+✔ ledger pagination preserves opening and running balances on same-day entries and out-of-range pages (472.078ms)
+✔ dated reversals preserve historical statements and offset original cash classifications (28.141167ms)
+✔ migration is repeatable with populated journals and preserves explicit account classifications (15.890625ms)
+✔ offsetting external cash entries are flagged for review rather than silently treated as transfers (5.558209ms)
+✔ account reporting changes are audited, reject invalid values, and survive migration reruns (23.9755ms)
+✔ decimal arithmetic is exact and rejects lossy or malformed monetary inputs (793.025917ms)
+✔ drafts are excluded; posting, partial payments and payment retry produce one balanced ledger (42.945125ms)
+✔ concurrent payments cannot overpay a document (19.185ms)
+✔ purchase, sale, insufficient stock and reversals preserve inventory and tax facts (24.319875ms)
+✔ quotes convert once and keep a contact snapshot after master data changes (11.9495ms)
+✔ credit allocation cannot exceed available credit and restores due balance when removed (18.516917ms)
+✔ bank imports deduplicate and reconcile only matching account, direction and amount (25.344917ms)
+✔ database rejects unbalanced inserts and mutations of posted journals/documents (7.734084ms)
+✔ recurring generation is explicit, idempotent per due date, and creates drafts (7.732333ms)
+✔ project time can be invoiced once and becomes unbilled when its draft invoice is voided (9.544417ms)
+✔ API denies unauthenticated requests, surfaces persistence and escapes print HTML (62.710375ms)
+✔ supporting documents upload and download byte-exact content behind authentication (10.485291ms)
+✔ ledger refuses late insertion into an existing journal and scopes credit lists by contact (7.639167ms)
+✔ reapplying the migration preserves posted records and journal balances (4.689042ms)
+✔ standard-cost purchases preserve inventory valuation and post actual-price differences separately (14.41425ms)
+✔ document discounts allocate exact paise before tax and signed adjustments balance the ledger (9.191667ms)
+✔ delivery challans finalize without ledger or stock effects and convert exactly once into editable invoice drafts (10.0235ms)
+✔ discounts and adjustments survive source conversion without being applied twice (4.87075ms)
+Connect migration applied: 31_nexsyrus_connect.sql
+Connect migration applied: 32_connect_extensions.sql
+✔ M1 actual employee JWT authentication rejects missing, forged, revoked, suspended and CA identities (761.368958ms)
+✔ M1 channels require company admins; private metadata and history are hidden from nonmembers (9.225417ms)
+✔ M1 public join is idempotent; channel names, company identity and manager permissions are constrained (13.966041ms)
+✔ M1 send retry and concurrent sends produce unique ordered durable messages, including identical text (38.222083ms)
+✔ M1 edits/deletes enforce author, audited tombstones and immutable identities at SQL level (17.092042ms)
+✔ M1 database RLS rejects direct cross-user reads/writes even if API checks are omitted (7.803459ms)
+✔ M1 archived and announcement-only channels enforce posting at API and RLS layers (19.50625ms)
+✔ M2 threads preserve parent, count replies and reject cross-channel or nested parents (13.878417ms)
+✔ M2 reactions are unique, removable and cannot be injected into private or deleted messages (14.858666ms)
+✔ M2 mentions validate recipients and deduplicate notification fanout across retries, edits, DM/thread overlap (25.258042ms)
+✔ M3 DMs are canonical under concurrent creation and founders cannot read nonparticipant content (19.09575ms)
+✔ M3 search and mention filters obey membership, participant and company boundaries (17.5115ms)
+✔ M3 read positions are monotonic, clamp future values and exclude own/deleted messages from unreads (17.340667ms)
+✔ M3 removal revokes history/search/notifications/mention choices immediately (15.040208ms)
+✔ M3 realtime role sees identifier-only authorized events and rejects invalidated sessions (13.694083ms)
+✔ HTTP endpoints validate identifiers, authorship and rate limits without disclosing SQL errors (26.594667ms)
+✔ M4 private attachment upload/download validates content, retries by hash and rechecks current membership (24.938042ms)
+✔ M4 malicious/spoofed files, active PDF, macros and malformed Office ZIP are rejected (0.388959ms)
+✔ M4 saved/pinned messages preserve authorization, personal scope and manager-only pins (21.764917ms)
+✔ M4 presence expires to away and SQL prevents setting another employee status (5.054959ms)
+✔ M4 task conversion reuses checklist, validates role/school/assignee and never copies private body automatically (11.996792ms)
+✔ company scope is enforced even when the same employee belongs to another company (17.454417ms)
+✔ explicit migration runner journals both migrations atomically and safely skips a repeat run (0.885084ms)
+✔ manifest orders field feedback after trackable links (0.654792ms)
+✔ default routing, conflicts, and mixed-issue hints do not auto-split (1.083209ms)
+⚠️ GET     401 │ /api/super-admin/crm/feedback/items  (1ms)
+⚠️ POST    403 │ /api/super-admin/crm/feedback  (7ms)
+⚠️ PATCH   403 │ /api/super-admin/crm/feedback/destinations/product  (1ms)
+✖ field feedback is saved, routed, split, and permissioned without duplicate queue items (1486.655292ms)
+✔ haversine: Hyderabad ~11km sanity (0.792208ms)
+✔ proximity verification bands (0.06425ms)
+✔ proximity meters from coordinates (0.049208ms)
+✔ computeTravelDistance falls back to haversine without API key (0.09525ms)
+✔ scenario A: first school of the day originates at home base (0.07275ms)
+✔ scenario B: second school originates at the previous school, not home (0.04975ms)
+✔ origin logic contract: HOME_BASE first, PREVIOUS_SCHOOL after (0.065458ms)
+✔ qualification scoring explains priority (0.078792ms)
+✔ null coords never crash distance (0.051ms)
+⚠️ POST    403 │ /api/super-admin/rbac/kill-switch  (11ms)
+⚠️ POST    403 │ /api/super-admin/rbac/enforce  (1ms)
+⚠️ PATCH   403 │ /api/super-admin/clusters/cluster_a  (1ms)
+⚠️ POST    403 │ /api/super-admin/clusters  (1ms)
+✔ a founder cannot disable school authorization or replace cluster credentials (1217.238375ms)
+⚠️ POST    403 │ /api/super-admin/rbac/kill-switch  (1ms)
+✖ a super admin can still engage the authorization kill switch (2.463583ms)
+⚠️ GET     403 │ /api/super-admin/backups/stats  (1ms)
+⚠️ POST    403 │ /api/super-admin/backups/trigger  (1ms)
+⚠️ POST    403 │ /api/super-admin/posters  (0ms)
+✔ founders cannot read backups or publish posters that every tenant app displays (4.26325ms)
+⚠️ PUT     403 │ /api/super-admin/founder/settings  (1ms)
+⚠️ PATCH   403 │ /api/super-admin/founder/settings/founders/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/toggle  (1ms)
+⚠️ GET     403 │ /api/super-admin/founder/audit-logs  (1ms)
+✅ PUT     200 │ /api/super-admin/founder/settings  (1ms)
+Error listing audit logs: PostgresError: relation "audit_logs" does not exist
+    at ErrorResponse (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/postgres/cjs/src/connection.js:815:30)
+    at handle (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/postgres/cjs/src/connection.js:489:6)
+    at Socket.data (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/postgres/cjs/src/connection.js:324:9)
+    at Socket.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:563:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+    at Readable.push (node:internal/streams/readable:394:5)
+    at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+    at cachedError (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/postgres/cjs/src/query.js:170:23)
+    at new Query (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/postgres/cjs/src/query.js:36:24)
+    at sql (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/postgres/cjs/src/index.js:112:11)
+    at Object.apply (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/config/db.js:42:20) {
+  severity_local: 'ERROR',
+  severity: 'ERROR',
+  code: '42P01',
+  position: '299',
+  file: 'parse_relation.c',
+  line: '1469',
+  routine: 'parserOpenTable'
+}
+❌ GET     500 │ /api/super-admin/founder/audit-logs  (1ms)
+✖ a sales founder cannot change organization settings, founder access, or audit history (8.974917ms)
+✅ GET     200 │ /api/super-admin/founder/notifications?user_id=33333333-3333-4333-8333-333333333333&founder_id=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb  (2ms)
+⚠️ DELETE  404 │ /api/super-admin/founder/notifications/ffffffff-ffff-4fff-8fff-ffffffffffff  (1ms)
+⚠️ PATCH   404 │ /api/super-admin/founder/notifications/ffffffff-ffff-4fff-8fff-ffffffffffff/read  (1ms)
+✅ PATCH   200 │ /api/super-admin/founder/notifications/eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee/read  (1ms)
+⚠️ GET     403 │ /api/super-admin/founder/notifications  (1ms)
+✖ notification reads and deletes stay inside the caller account (8.653417ms)
+⚠️ GET     403 │ /api/super-admin/auth/me  (1ms)
+✅ GET     200 │ /api/super-admin/auth/me  (1ms)
+✖ directory email does not grant another account, and an inactive binding does not fall through (2.991417ms)
+✔ login binds an unused super admin email once and will not retarget a used row (3.646667ms)
+⚠️ POST    403 │ /api/super-admin/crm/imports  (6ms)
+⚠️ POST    403 │ /api/super-admin/crm/imports  (1ms)
+✖ school import creates prospects without tenants (1375.476ms)
+✔ school names fold case and whitespace without merging campuses (1.403458ms)
+✔ phones keep country and extension and reject bare landlines (0.286375ms)
+✔ emails fold only the domain and keep plus tags (0.111125ms)
+✔ UDISE stays an 11 digit string and rejects spreadsheet damage (0.093125ms)
+✔ incomplete location does not become a matching key (0.266375ms)
+✔ duplicate classes explain evidence and never merge on a shared phone alone (0.303041ms)
+✔ loose name similarity cannot authorize a merge by itself (0.116916ms)
+✔ restricted matches hide the other founder record (0.05675ms)
+✔ csv keeps quoted newlines, bom, and duplicate headers by index (0.291792ms)
+✔ csv rejects ambiguous delimiters and oversized claims (0.197375ms)
+✔ repeated school rows group by udise while different udise values conflict (5.079583ms)
+✔ xlsx preserves text identifiers and flags formulas (43.953959ms)
+⚠️ POST    403 │ /api/super-admin/crm/leads/783eecd3-e12f-40e9-8491-ca4918d46725/tasks  (8ms)
+✖ sales command metrics, isolation, and pilot lifecycle (1360.589542ms)
+✔ follow-up boundaries use now, 72 hours, and local midnight (0.328375ms)
+✔ aging buckets are non-overlapping and 72 hours is 3–7 days (0.057084ms)
+✔ rates stay null without a denominator or baseline (0.057333ms)
+✔ Kolkata today and week start at local midnight and comparison is equal length (9.1355ms)
+✔ owner-scoped callers cannot widen the owner filter (0.307625ms)
+✔ attention priority breaks ties by age, age, then entity key (0.077209ms)
+✔ activation and ambiguous school identity are explicit (1340.076042ms)
+✔ migration backfill preserves uncertain history and projects follow-ups (5.471084ms)
+✅ POST    201 │ /api/public/enquiries  (4ms)
+✅ POST    201 │ /api/public/enquiries  (1ms)
+✔ public ingestion accepts phone-only leads and blocks privileged columns (17.911583ms)
+⚠️ POST    403 │ /api/super-admin/crm/founders/sync  (5ms)
+✖ scope fails closed and founder A cannot touch founder B (5.995125ms)
+✖ example A wins a school sale and activates only when live (0.857917ms)
+⚠️ POST    400 │ /api/super-admin/crm/leads/79500080-fa8e-40c7-80ac-544887603b34/tasks  (2ms)
+✖ example B recovers a crashed handoff and keeps loss history (4.49225ms)
+✔ automation retries dedupe and later occurrences still run (11.91675ms)
+✅ POST    200 │ /api/super-admin/crm/leads/e383dd15-acc7-4c78-bd54-d179a36d3f2d/stage  (5ms)
+⚠️ POST    409 │ /api/super-admin/crm/leads/e383dd15-acc7-4c78-bd54-d179a36d3f2d/stage  (7ms)
+✔ concurrent stage updates conflict once (9.014083ms)
+✔ manifest orders trackable links after founder sales command (0.440708ms)
+✔ destinations fail closed and external stores are not owned-site coverage (0.918875ms)
+✖ ingress signatures reject replay windows and match the website canonical body (0.615958ms)
+✖ open classification and page URL redaction (0.478042ms)
+⚠️ POST    404 │ /api/internal/track/resolve  (2ms)
+⚠️ POST    401 │ /api/internal/track/resolve  (1ms)
+⚠️ GET     404 │ /api/super-admin/crm/track-links/e9c9ef63-282c-43cc-b670-4bd6182c65bf  (6ms)
+⚠️ POST    403 │ /api/super-admin/crm/track-links  (2ms)
+⚠️ GET     401 │ /api/super-admin/crm/track-links  (1ms)
+✅ GET     200 │ /api/super-admin/crm/track-links/e9c9ef63-282c-43cc-b670-4bd6182c65bf  (2ms)
+✅ POST    201 │ /api/public/enquiries  (1ms)
+✔ trackable links attribute opens without merging a different school (1464.380084ms)
+✔ rejects disguised HTML, SVG and broken image bytes (11.037708ms)
+✔ converts and bounds images without upscaling and strips metadata (67.3275ms)
+✔ rejects images beyond the decoded pixel budget (12.1415ms)
+✔ all library routes require SuperAdmin, including image and history endpoints (676.047458ms)
+❌ POST /content — This save key was already used for different content Error: This save key was already used for different content
+    at fail (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:2:64)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentLibrary.js:23:43
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async scope (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/postgres/cjs/src/index.js:260:18)
+    at async sql.begin (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/postgres/cjs/src/index.js:243:14)
+    at async /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/routes/superadmin/learningContent.js:61:14
+✔ persists hierarchy and all question categories and retries exactly once (15.160375ms)
+❌ POST /content — Add an answer for every question before marking ready Error: Add an answer for every question before marking ready
+    at fail (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:2:64)
+    at validateDocument (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:55:45)
+    at Object.saveTopic (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentLibrary.js:15:15)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/routes/superadmin/learningContent.js:61:28
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/middleware/errorHandler.js:6:19
+    at Layer.handle [as handle_request] (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/index.js:284:15
+❌ POST /content — A question or image links to a subtopic outside this topic Error: A question or image links to a subtopic outside this topic
+    at fail (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:2:64)
+    at scope (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:38:114)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:42:64
+    at Array.map (<anonymous>)
+    at validateDocument (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:39:59)
+    at Object.saveTopic (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentLibrary.js:15:15)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/routes/superadmin/learningContent.js:61:28
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/middleware/errorHandler.js:6:19
+    at Layer.handle [as handle_request] (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/route.js:149:13)
+❌ POST /content — Content contains unsupported fields Error: Content contains unsupported fields
+    at fail (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:2:64)
+    at keys (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:13:59)
+    at validateDocument (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:16:3)
+    at Object.saveTopic (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentLibrary.js:15:15)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/routes/superadmin/learningContent.js:61:28
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/middleware/errorHandler.js:6:19
+    at Layer.handle [as handle_request] (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/layer.js:95:5)
+❌ POST /content — Subtopic title must be non-empty text, up to 255 characters Error: Subtopic title must be non-empty text, up to 255 characters
+    at fail (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:2:64)
+    at text (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:6:87)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:31:52
+    at Array.map (<anonymous>)
+    at validateDocument (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:29:55)
+    at Object.saveTopic (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentLibrary.js:15:15)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/routes/superadmin/learningContent.js:61:28
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/middleware/errorHandler.js:6:19
+    at Layer.handle [as handle_request] (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/route.js:149:13)
+❌ POST /content — Marks must be a number from 0 to 1000 with up to two decimals Error: Marks must be a number from 0 to 1000 with up to two decimals
+    at fail (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:2:64)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:41:193
+    at Array.map (<anonymous>)
+    at validateDocument (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:39:59)
+    at Object.saveTopic (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentLibrary.js:15:15)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/routes/superadmin/learningContent.js:61:28
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/middleware/errorHandler.js:6:19
+    at Layer.handle [as handle_request] (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/route.js:119:3)
+❌ POST /content — Marks must be a number from 0 to 1000 with up to two decimals Error: Marks must be a number from 0 to 1000 with up to two decimals
+    at fail (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:2:64)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:41:193
+    at Array.map (<anonymous>)
+    at validateDocument (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:39:59)
+    at Object.saveTopic (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentLibrary.js:15:15)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/routes/superadmin/learningContent.js:61:28
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/middleware/errorHandler.js:6:19
+    at Layer.handle [as handle_request] (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/route.js:119:3)
+❌ POST /content — Use completed images uploaded through the content library Error: Use completed images uploaded through the content library
+    at fail (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:2:64)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentLibrary.js:36:41
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async scope (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/postgres/cjs/src/index.js:260:18)
+    at async sql.begin (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/postgres/cjs/src/index.js:243:14)
+    at async /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/routes/superadmin/learningContent.js:61:14
+✔ rejects incomplete ready content, invalid cross-topic links and unknown fields (9.188ms)
+❌ PUT /content/22939ab3-93ff-4d12-8c9d-0184c24bf8fb — Another editor saved this topic. Reload it before saving your changes. Error: Another editor saved this topic. Reload it before saving your changes.
+    at fail (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:2:64)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentLibrary.js:30:57
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async scope (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/postgres/cjs/src/index.js:260:18)
+    at async sql.begin (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/postgres/cjs/src/index.js:243:14)
+    at async /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/routes/superadmin/learningContent.js:61:14
+✔ conflicting concurrent editors cannot overwrite content and revision snapshots are immutable (14.603083ms)
+✔ same save submitted concurrently creates one topic (16.1945ms)
+❌ GET /content?cursor=bad — Invalid page cursor Error: Invalid page cursor
+    at fail (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:2:64)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/routes/superadmin/learningContent.js:37:15
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/middleware/errorHandler.js:6:19
+    at Layer.handle [as handle_request] (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/index.js:284:15
+    at router.process_params (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/index.js:280:10)
+❌ GET /content?limit=100000 — Page size must be between 1 and 50 Error: Page size must be between 1 and 50
+    at fail (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/services/learningContentValidation.js:2:64)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/routes/superadmin/learningContent.js:30:80
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/src/middleware/errorHandler.js:6:19
+    at Layer.handle [as handle_request] (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/index.js:284:15
+    at router.process_params (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/express/lib/router/index.js:280:10)
+✔ paging, filters, invalid cursors and archive visibility (11.860042ms)
+✔ a complete dossier is ready and the code is suggested (0.818292ms)
+✔ a live school with the same code blocks onboarding (0.181042ms)
+✔ a similar name warns without blocking (0.093584ms)
+✔ invalid admin email and a short name are blockers (0.080875ms)
+✔ the same intake is not treated as its own duplicate (0.074042ms)
+✔ an existing school downloads its exact constants folder (91.764667ms)
+✔ a new school downloads the same folder layout with its own identity (34.299583ms)
+✔ stored source downloads without an SSD and rejects corrupted bytes (33.320333ms)
+✔ missing new-school contact values never inherit the demo school contacts (32.159375ms)
+✔ folder data is parsed as literals without executing imported TypeScript (74.485542ms)
+✔ API migration changes only environment and EAS API fields, preserving binary assets and other settings (0.238083ms)
+✔ new package snapshots use the public API even if cluster metadata still points at localhost (0.1135ms)
+✔ a new Android and web school package is consistent and does not leak another school (143.711458ms)
+✔ the same numeric school id on another cluster is a different package (32.773041ms)
+✔ a branding revision does not change the previous package hash (36.333291ms)
+✔ missing iOS Firebase is a platform blocker and Android can still be selected alone (0.2295ms)
+✔ unsafe env, paths, and placeholder Firebase files are rejected (0.338541ms)
+✔ generated schoolConfig transpiles and keeps the worklet export (143.376292ms)
+✔ draft conflicts, package retries, and downloads stay on the original school (660.296167ms)
+✖ the apply script replaces allowlisted files and leaves shared school.ts (34.769417ms)
+✔ stored folders are cluster-scoped, immutable per revision, and worker-ready without local disk (647.562542ms)
+✔ RED ALERT v3 has the expected execution shape (0.469125ms)
+✔ each owner has 25 valid, uniquely identified deliverables (0.469ms)
+✔ every execution day contains work (0.075167ms)
+ℹ tests 159
+ℹ suites 0
+ℹ pass 146
+ℹ fail 13
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 29561.119375
+
+✖ failing tests:
+
+test at test/crm/fieldFeedback.test.js:56:1
+✖ field feedback is saved, routed, split, and permissioned without duplicate queue items (1486.655292ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  403 !== 200
+
+      at TestContext.<anonymous> (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/test/crm/fieldFeedback.test.js:162:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/platformBoundary.test.js:189:1
+✖ a super admin can still engage the authorization kill switch (2.463583ms)
+  AssertionError [ERR_ASSERTION]: {"error":"Account is inactive or not authorized"}
+
+  403 !== 200
+
+      at TestContext.<anonymous> (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/test/crm/platformBoundary.test.js:192:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/platformBoundary.test.js:207:1
+✖ a sales founder cannot change organization settings, founder access, or audit history (8.974917ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  500 !== 200
+
+      at TestContext.<anonymous> (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/test/crm/platformBoundary.test.js:224:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 500,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/platformBoundary.test.js:228:1
+✖ notification reads and deletes stay inside the caller account (8.653417ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  403 !== 200
+
+      at TestContext.<anonymous> (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/test/crm/platformBoundary.test.js:246:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/platformBoundary.test.js:250:1
+✖ directory email does not grant another account, and an inactive binding does not fall through (2.991417ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  200 !== 403
+
+      at TestContext.<anonymous> (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/test/crm/platformBoundary.test.js:254:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 403,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/prospectFlow.test.js:32:1
+✖ school import creates prospects without tenants (1375.476ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  403 !== 202
+
+      at TestContext.<anonymous> (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/test/crm/prospectFlow.test.js:92:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 202,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/salesCommandMetrics.test.js:37:1
+✖ sales command metrics, isolation, and pilot lifecycle (1360.589542ms)
+  AssertionError [ERR_ASSERTION]: {"error":"Account is inactive or not authorized"}
+
+  403 !== 200
+
+      at TestContext.<anonymous> (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/test/crm/salesCommandMetrics.test.js:127:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/salesFoundation.test.js:263:1
+✖ scope fails closed and founder A cannot touch founder B (5.995125ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  403 !== 200
+
+      at TestContext.<anonymous> (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/test/crm/salesFoundation.test.js:265:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/salesFoundation.test.js:297:1
+✖ example A wins a school sale and activates only when live (0.857917ms)
+  TypeError: Cannot read properties of undefined (reading 'id')
+      at TestContext.<anonymous> (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/test/crm/salesFoundation.test.js:302:172)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7)
+
+test at test/crm/salesFoundation.test.js:416:1
+✖ example B recovers a crashed handoff and keeps loss history (4.49225ms)
+  AssertionError [ERR_ASSERTION]: {"error":"Owner must be an active founder","code":"OWNER_INACTIVE"}
+
+  400 !== 200
+
+      at TestContext.<anonymous> (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/test/crm/salesFoundation.test.js:431:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 400,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/trackableLinks.test.js:48:1
+✖ ingress signatures reject replay windows and match the website canonical body (0.615958ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusWebsite/apps/SchoolIMS/src/lib/trackingIngress.ts' imported from /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/test/crm/trackableLinks.test.js
+      at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+      at moduleResolve (node:internal/modules/esm/resolve:865:10)
+      at defaultResolve (node:internal/modules/esm/resolve:991:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:719:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:736:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:765:52)
+      at #resolve (node:internal/modules/esm/loader:701:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:621:35)
+      at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:650:32)
+      at TracingChannel.tracePromise (node:diagnostics_channel:350:14) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///Users/bhanureddy/Desktop/Single%20Source%20of%20truth/NexsyrusWebsite/apps/SchoolIMS/src/lib/trackingIngress.ts'
+  }
+
+test at test/crm/trackableLinks.test.js:63:1
+✖ open classification and page URL redaction (0.478042ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusWebsite/apps/SchoolIMS/src/lib/trackingIngress.ts' imported from /Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/test/crm/trackableLinks.test.js
+      at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+      at moduleResolve (node:internal/modules/esm/resolve:865:10)
+      at defaultResolve (node:internal/modules/esm/resolve:991:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:719:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:736:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:765:52)
+      at #resolve (node:internal/modules/esm/loader:701:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:621:35)
+      at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:650:32)
+      at TracingChannel.tracePromise (node:diagnostics_channel:350:14) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///Users/bhanureddy/Desktop/Single%20Source%20of%20truth/NexsyrusWebsite/apps/SchoolIMS/src/lib/trackingIngress.ts'
+  }
+
+test at test/schoolPackage/render.test.js:361:1
+✖ the apply script replaces allowlisted files and leaves shared school.ts (34.769417ms)
+  Error: ENOENT: no such file or directory, copyfile '/Users/bhanureddy/Desktop/Single Source of truth/SchoolIMS/SchoolIMS-Frontend/schoolims.template.json' -> '/var/folders/wz/cvgprdr156gcftbg_g9qhcpw0000gn/T/apply-pvPagx/checkout/schoolims.template.json'
+      at Object.copyFileSync (node:fs:3104:11)
+      at TestContext.<anonymous> (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/test/schoolPackage/render.test.js:380:6)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'copyfile',
+    path: '/Users/bhanureddy/Desktop/Single Source of truth/SchoolIMS/SchoolIMS-Frontend/schoolims.template.json',
+    dest: '/var/folders/wz/cvgprdr156gcftbg_g9qhcpw0000gn/T/apply-pvPagx/checkout/schoolims.template.json'
+  }

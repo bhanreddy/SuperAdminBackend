@@ -1,0 +1,27 @@
+{
+  "new_source_files": {
+    "SuperAdminBackend/src/db/migrations/30_books_finance_connections.sql": "150206277881edd8beb84da176f6572418e93aac06b3089572c6108fb47e78a2",
+    "SuperAdminBackend/src/db/migrations/31_nexsyrus_connect.sql": "3e1935e4c959cd65f9cbbd4b3a925ad62debf398dd975aa14fb9ea5e17a39f00",
+    "SuperAdminBackend/src/db/migrations/32_connect_extensions.sql": "29cce3f1b2587502e4ea60eda8f9bf8a52028b9f91f42928b15fcbc4504b5ac9",
+    "SuperAdminBackend/src/db/run-connect-migration.js": "8784339faa8722a628593bfc212795c7d95aa4bafdb61b30330559a73345e102",
+    "SuperAdminBackend/src/routes/superadmin/connect.js": "01848531b4307261d2f3c199851ca09cd636044d6d1e8dab9861f40921c63a49",
+    "SuperAdminBackend/src/services/connect/extensions.js": "884b8f96eafe4e4356021bcaa97087a8a687679c339c9e8efc7d4d1eccdbd534",
+    "SuperAdminBackend/src/services/connect/files.js": "8bbf90b7197737e25b6f07947476cbf822f2a8b627304eae1d950e33e65a4e36",
+    "SuperAdminBackend/src/services/connect/router.js": "95fc7ed8353f2f08c18d938e22f011c42d11550a3f3ba13996b587d4dcdca76b",
+    "SuperAdminBackend/src/services/connect/service.js": "22abe54e375c5814b27d838ab0816180e42052848ddcd85df911a62e768dfefb",
+    "SuperAdminBackend/test/connect/connect.test.js": "0c32601eafa017f13aa87f149238084cec733f4e30a761ad4ce7fc5b1421c822",
+    "SuperAdminFrontend/app/(app)/connect.tsx": "df51245d475eb6597937a1150cb743646208d299250022930332bffc7b30269f",
+    "SuperAdminFrontend/src/screens/connect/ConnectScreen.tsx": "aab298c1d025870a49987bfe0cb077e5312efc705e3c80238e4d32cc07228487",
+    "SuperAdminFrontend/src/services/connect/api.ts": "61f508a333faade65c2aadaaabc48f72e43d37191b29f92a06c2988cc3ea9082",
+    "SuperAdminFrontend/src/services/connect/files.ts": "e346f7b70c7efcf772cb6af2ab6a1529db7d28b899257fcae227c6a8d8036a26",
+    "SuperAdminFrontend/src/services/connect/realtime.ts": "333116804703806ff4fe37845a2bd7fb7467e9148e11620bd2a9f8b38b3d6b0c",
+    "SuperAdminFrontend/tests/connect-preview.cjs": "50133e71a3d989acf0e700cd8e0d15772e96653cb74bff5428115d71cecb4599",
+    "SuperAdminFrontend/tests/connect.test.cjs": "7397415a08f4c1736c8849bfb747b2cbbdc7b2d0e2306b8b7deee03661526de3"
+  },
+  "narrow_existing_integrations": [
+    "SuperAdminBackend/src/routes/index.js",
+    "SuperAdminFrontend/src/components/layout/Sidebar.tsx",
+    "SuperAdminFrontend/src/components/auth/AppRouteGuard.tsx"
+  ],
+  "other_changes": "Existing fingerprint and concurrent Books changes are not part of Connect."
+}

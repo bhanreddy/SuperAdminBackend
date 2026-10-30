@@ -1,0 +1,52 @@
+✔ a new Android and web school package is consistent and does not leak another school (155.961542ms)
+✔ the same numeric school id on another cluster is a different package (33.818ms)
+✔ a branding revision does not change the previous package hash (36.79425ms)
+✔ missing iOS Firebase is a platform blocker and Android can still be selected alone (0.227083ms)
+✔ unsafe env, paths, and placeholder Firebase files are rejected (0.350041ms)
+✖ generated schoolConfig transpiles and keeps the worklet export (0.196125ms)
+✔ draft conflicts, package retries, and downloads stay on the original school (705.86975ms)
+✖ the apply script replaces allowlisted files and leaves shared school.ts (37.62775ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 6
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11171.181042
+
+✖ failing tests:
+
+test at test/schoolPackage/render.test.js:230:1
+✖ generated schoolConfig transpiles and keeps the worklet export (0.196125ms)
+  Error: Cannot find module '/private/SchoolIMS/SchoolIMS-Frontend/node_modules/typescript'
+  Require stack:
+  - /private/tmp/nexsyrus-connect-baseline-9v91c5wo/test/schoolPackage/render.test.js
+      at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+      at defaultResolveImpl (node:internal/modules/cjs/loader:1066:19)
+      at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1071:22)
+      at Module._load (node:internal/modules/cjs/loader:1242:25)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+      at Module.require (node:internal/modules/cjs/loader:1556:12)
+      at require (node:internal/modules/helpers:152:16)
+      at TestContext.<anonymous> (/private/tmp/nexsyrus-connect-baseline-9v91c5wo/test/schoolPackage/render.test.js:232:14)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ '/private/tmp/nexsyrus-connect-baseline-9v91c5wo/test/schoolPackage/render.test.js' ]
+  }
+
+test at test/schoolPackage/render.test.js:361:1
+✖ the apply script replaces allowlisted files and leaves shared school.ts (37.62775ms)
+  Error: ENOENT: no such file or directory, copyfile '/private/SchoolIMS/SchoolIMS-Frontend/schoolims.template.json' -> '/var/folders/wz/cvgprdr156gcftbg_g9qhcpw0000gn/T/apply-1hXtXA/checkout/schoolims.template.json'
+      at Object.copyFileSync (node:fs:3104:11)
+      at TestContext.<anonymous> (/private/tmp/nexsyrus-connect-baseline-9v91c5wo/test/schoolPackage/render.test.js:380:6)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'copyfile',
+    path: '/private/SchoolIMS/SchoolIMS-Frontend/schoolims.template.json',
+    dest: '/var/folders/wz/cvgprdr156gcftbg_g9qhcpw0000gn/T/apply-1hXtXA/checkout/schoolims.template.json'
+  }

@@ -1,0 +1,40 @@
+{
+  "source_head": "7c87271e82b8fb1d6d9614ecc1b01cffbd89af0e",
+  "current_failing_tests": [
+    "a sales founder cannot change organization settings, founder access, or audit history",
+    "a super admin can still engage the authorization kill switch",
+    "directory email does not grant another account, and an inactive binding does not fall through",
+    "example A wins a school sale and activates only when live",
+    "example B recovers a crashed handoff and keeps loss history",
+    "field feedback is saved, routed, split, and permissioned without duplicate queue items",
+    "ingress signatures reject replay windows and match the website canonical body",
+    "notification reads and deletes stay inside the caller account",
+    "open classification and page URL redaction",
+    "sales command metrics, isolation, and pilot lifecycle",
+    "school import creates prospects without tenants",
+    "scope fails closed and founder A cannot touch founder B",
+    "the apply script replaces allowlisted files and leaves shared school.ts"
+  ],
+  "also_seen_in_baseline": [
+    "a sales founder cannot change organization settings, founder access, or audit history",
+    "a super admin can still engage the authorization kill switch",
+    "directory email does not grant another account, and an inactive binding does not fall through",
+    "example A wins a school sale and activates only when live",
+    "example B recovers a crashed handoff and keeps loss history",
+    "field feedback is saved, routed, split, and permissioned without duplicate queue items",
+    "ingress signatures reject replay windows and match the website canonical body",
+    "notification reads and deletes stay inside the caller account",
+    "open classification and page URL redaction",
+    "sales command metrics, isolation, and pilot lifecycle",
+    "school import creates prospects without tenants",
+    "scope fails closed and founder A cannot touch founder B",
+    "the apply script replaces allowlisted files and leaves shared school.ts"
+  ],
+  "not_seen_in_baseline": [],
+  "additional_baseline_failures": [
+    "concurrent stage updates conflict once",
+    "generated schoolConfig transpiles and keeps the worklet export",
+    "test/schoolPackage/render.test.js"
+  ],
+  "note": "Original HEAD extracted to an isolated temporary archive with existing node_modules. School package rerun used dummy local configuration because the archive excluded .env; sibling paths were unavailable in both environments. Extra baseline failures are retained, not normalized away."
+}

@@ -1,0 +1,20 @@
+{
+  "docs/fingerprint-unlock.md": "bedf7650cbb8685dab86fa8bac92135d54b1f6b59decf603731f448c98120356",
+  "src/components/auth/FingerprintSecurity.tsx": "2b2dde0d8420dfeb9f993117ba6bd7d036f4d0a184b04746c50ee0531f64eb52",
+  "src/contexts/FingerprintContext.tsx": "2711f0bbd1c92796d5ee3c9db5924e56004446fecf33dfeffa77edbcd526a155",
+  "src/screens/books/export.ts": "de54eea663edc38ce289ef1274155d0370bce33352dbf68bb525fe8fc54a6e10",
+  "src/services/fingerprintService.ts": "6aa4dd2b1e50115ce97ff072ce975defe3c260bf736b7641bf5c39a91ba948ea",
+  "tests/fingerprint.test.cjs": "5b836c240862987c15e463185e22b1b0a4897611eaa0b693e83ae6665c894368",
+  "android/app/src/main/AndroidManifest.xml": "ee4a77f4e6431c348d4920823f7e51ca2e7fe428eadcb04cebbbb5d978eab9a5",
+  "app.json": "152c30eb0729d3fe1e0af983dc88b53fafc86c9e44dddd19caa30f575fc7fbbc",
+  "app/_layout.tsx": "2e4841858b4ddf07161feea356e161ef9e6bd4b501aeac99efbf760e5cac78fc",
+  "package-lock.json": "4fa651557b4e4e9e674faff028acfa0b72a262ca25b9f0564baf6c8120767753",
+  "package.json": "bccb27b474c667072ea586161886c629a1ba7084c64db08bf925268362b7c5ac",
+  "src/api/books.ts": "1ebc0757b3e88942352923a25517b5d7f99f06b3b887426ddc3adf097c231f2f",
+  "src/components/layout/TopBar.tsx": "377ee2e43a68bf4a8db5a0dd0fcec6e92deaf4f0c79a6827f4deea16f46c14c7",
+  "src/screens/books/BooksAccountScreen.tsx": "6a7b6ab1eb960429eba27a77cb6a78df9a18a1cca80982afacf11a9c68c2d9b9",
+  "src/screens/books/EntityEditor.tsx": "c4ae0ca35167e033d748f7414ff7cbcfaec3a7c62e0c95c0f301fa4229b19536",
+  "src/screens/books/ReportsView.tsx": "cfd69b16555fe3a4811cb48ba75ebfcb3668242784d2916c4ba16e662b4706a7",
+  "src/screens/founder/FounderSettingsScreen.tsx": "5699a5fe8dfa4bb4da8033e3decb4cb45810eba8cee75fc2dcc81e4a0b06649b",
+  "src/services/authService.ts": "a34d839736a3e87d77d04300cce2931041d06219a54badf51630d5235311e82b"
+}

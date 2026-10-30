@@ -98,6 +98,9 @@ superAdmin.use('/crm', crmRouter);
 // Nexsyrus Support inbox (primary shared SchoolIMS DB only)
 superAdmin.use('/messenger', messengerRouter);
 
+// Internal company collaboration has its own employee/membership/RLS boundary.
+superAdmin.use('/connect', require('./superadmin/connect'));
+
 // Content
 superAdmin.use('/content', contentRouter);
 superAdmin.use('/learning-content', require('./superadmin/learningContent'));

@@ -1,0 +1,388 @@
+{
+  "evidence_id": "ev_2bf5124ba841e691405507d70272dbc001ef7c416df7cced47680d35f288d95f",
+  "subject": null,
+  "provider": {
+    "id": "rea-playwright-browser-scenario",
+    "name": "REA Playwright browser scenario capture provider",
+    "version": "1"
+  },
+  "analysis_profile": null,
+  "predicate_type": "rea.browser-scenario-capture",
+  "operation": "capture_browser_scenario",
+  "parameters": {
+    "browser": {
+      "mode": "launch",
+      "executable_path": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+      "headless": true
+    },
+    "start_url": {
+      "url": "http://127.0.0.1:47931/",
+      "query": []
+    },
+    "environment": {
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "device_scale_factor": 1
+      },
+      "locale": "en-US",
+      "timezone": "UTC",
+      "color_scheme": "light",
+      "reduced_motion": "reduce",
+      "service_workers": "block"
+    },
+    "actions": [
+      {
+        "step_id": "open-channel",
+        "timeout_ms": 10000,
+        "action": "click",
+        "locator": {
+          "kind": "css",
+          "selector": "[aria-label^='Open general']"
+        },
+        "button": "left",
+        "click_count": 1
+      },
+      {
+        "step_id": "open-thread",
+        "timeout_ms": 10000,
+        "action": "click",
+        "locator": {
+          "kind": "css",
+          "selector": "[aria-label='1 replies']"
+        },
+        "button": "left",
+        "click_count": 1
+      },
+      {
+        "step_id": "thread-visible",
+        "timeout_ms": 10000,
+        "action": "wait_for",
+        "locator": {
+          "kind": "css",
+          "selector": "[data-testid='connect-thread']"
+        },
+        "state": "visible"
+      }
+    ],
+    "storage": {
+      "cookies": [],
+      "local_storage": [],
+      "session_storage": []
+    },
+    "secrets": [],
+    "capture": {
+      "after_each_step": [],
+      "at_end": [
+        "screenshot",
+        "accessibility",
+        "url"
+      ],
+      "events": [],
+      "network": {
+        "request_body": false,
+        "response_body": false,
+        "header_values": false
+      },
+      "limits": {
+        "max_events": 10000,
+        "max_event_allocation_bytes": 4194304,
+        "max_total_event_allocation_bytes": 16777216,
+        "max_network_transactions": 1024,
+        "max_network_body_bytes": 65536,
+        "max_network_body_allocation_bytes": 1048576,
+        "max_network_header_allocation_bytes": 1048576,
+        "max_network_metadata_allocation_bytes": 1048576
+      }
+    },
+    "scenario_sha256": "33022330ba30d293e71023384e02e315bf0504682920b927e7c25e2cb596c2d3"
+  },
+  "raw_result": null,
+  "normalized_result": {
+    "browser": {
+      "mode": "launch",
+      "process_ownership": "provider-owned",
+      "cleanup": "terminated-owned-process",
+      "product": "Chromium",
+      "version": "156.0.8078.79"
+    },
+    "scenario": {
+      "start_origin": "http://127.0.0.1:47931",
+      "action_count": 3,
+      "secret_references": [],
+      "network_content": {
+        "request_body": false,
+        "response_body": false,
+        "header_values": false
+      },
+      "event_families": [],
+      "limits": {
+        "max_events": 10000,
+        "max_event_allocation_bytes": 4194304,
+        "max_total_event_allocation_bytes": 16777216,
+        "max_network_transactions": 1024,
+        "max_network_body_bytes": 65536,
+        "max_network_body_allocation_bytes": 1048576,
+        "max_network_header_allocation_bytes": 1048576,
+        "max_network_metadata_allocation_bytes": 1048576
+      }
+    },
+    "duration_ms": 579,
+    "steps": [
+      {
+        "step_index": 0,
+        "step_id": "scenario_start",
+        "action": "goto_start",
+        "elapsed_ms": 389,
+        "before_url": {
+          "url": "about:blank",
+          "origin": null,
+          "query_parameter_names": [],
+          "redacted": false
+        },
+        "after_url": {
+          "url": "http://127.0.0.1:47931/",
+          "origin": "http://127.0.0.1:47931",
+          "query_parameter_names": [],
+          "redacted": false
+        },
+        "event_sequence_start": 1,
+        "event_sequence_end": 0,
+        "artifacts": {
+          "screenshot": {
+            "state": "not_requested"
+          },
+          "dom": {
+            "state": "not_requested"
+          },
+          "accessibility": {
+            "state": "not_requested"
+          },
+          "url": {
+            "state": "not_requested"
+          },
+          "history": {
+            "state": "not_requested"
+          },
+          "storage": {
+            "state": "not_requested"
+          }
+        },
+        "completeness": {
+          "status": "complete",
+          "equality_eligible": true,
+          "missing_sections": [],
+          "truncated_sections": []
+        },
+        "status": "completed",
+        "error": null
+      },
+      {
+        "step_index": 1,
+        "step_id": "open-channel",
+        "action": "click",
+        "elapsed_ms": 75,
+        "before_url": {
+          "url": "http://127.0.0.1:47931/",
+          "origin": "http://127.0.0.1:47931",
+          "query_parameter_names": [],
+          "redacted": false
+        },
+        "after_url": {
+          "url": "http://127.0.0.1:47931/",
+          "origin": "http://127.0.0.1:47931",
+          "query_parameter_names": [],
+          "redacted": false
+        },
+        "event_sequence_start": 1,
+        "event_sequence_end": 0,
+        "artifacts": {
+          "screenshot": {
+            "state": "not_requested"
+          },
+          "dom": {
+            "state": "not_requested"
+          },
+          "accessibility": {
+            "state": "not_requested"
+          },
+          "url": {
+            "state": "not_requested"
+          },
+          "history": {
+            "state": "not_requested"
+          },
+          "storage": {
+            "state": "not_requested"
+          }
+        },
+        "completeness": {
+          "status": "complete",
+          "equality_eligible": true,
+          "missing_sections": [],
+          "truncated_sections": []
+        },
+        "status": "completed",
+        "error": null
+      },
+      {
+        "step_index": 2,
+        "step_id": "open-thread",
+        "action": "click",
+        "elapsed_ms": 20,
+        "before_url": {
+          "url": "http://127.0.0.1:47931/",
+          "origin": "http://127.0.0.1:47931",
+          "query_parameter_names": [],
+          "redacted": false
+        },
+        "after_url": {
+          "url": "http://127.0.0.1:47931/",
+          "origin": "http://127.0.0.1:47931",
+          "query_parameter_names": [],
+          "redacted": false
+        },
+        "event_sequence_start": 1,
+        "event_sequence_end": 0,
+        "artifacts": {
+          "screenshot": {
+            "state": "not_requested"
+          },
+          "dom": {
+            "state": "not_requested"
+          },
+          "accessibility": {
+            "state": "not_requested"
+          },
+          "url": {
+            "state": "not_requested"
+          },
+          "history": {
+            "state": "not_requested"
+          },
+          "storage": {
+            "state": "not_requested"
+          }
+        },
+        "completeness": {
+          "status": "complete",
+          "equality_eligible": true,
+          "missing_sections": [],
+          "truncated_sections": []
+        },
+        "status": "completed",
+        "error": null
+      },
+      {
+        "step_index": 3,
+        "step_id": "thread-visible",
+        "action": "wait_for",
+        "elapsed_ms": 39,
+        "before_url": {
+          "url": "http://127.0.0.1:47931/",
+          "origin": "http://127.0.0.1:47931",
+          "query_parameter_names": [],
+          "redacted": false
+        },
+        "after_url": {
+          "url": "http://127.0.0.1:47931/",
+          "origin": "http://127.0.0.1:47931",
+          "query_parameter_names": [],
+          "redacted": false
+        },
+        "event_sequence_start": 1,
+        "event_sequence_end": 0,
+        "artifacts": {
+          "screenshot": {
+            "state": "captured",
+            "value": {
+              "sha256": "71fc20dc0fd6d52cfd03277863082dc304c381e77d2a340abff3810c31065f7e",
+              "bytes": 53581,
+              "media_type": "image/png",
+              "local_file": "connect-mobile.png"
+            }
+          },
+          "dom": {
+            "state": "not_requested"
+          },
+          "accessibility": {
+            "state": "captured",
+            "value": {
+              "sha256": "923e2b51f4a689a0b5886a296cd900057131b728b4bfc2ede2b93d022d9ee26a",
+              "bytes": 1350,
+              "text": "- document:\n  - img\n  - text: NexSyrus Connect Company conversations, in one place\n  - button \"Search Connect\":\n    - img\n  - button \"Notifications, 0 unread\":\n    - img\n  - button \"Back to conversation\":\n    - img\n  - text: Thread A shared space for company updates and everyday collaboration\n  - button \"Members\"\n  - button \"Mark read\"\n  - text: Local visual fixture \u00b7 synthetic data\n  - button \"Refresh\"\n  - text: Thread\n  - button \"Original\"\n  - button \"Close thread\"\n  - text: DF Demo Founder Oct 30, 08:30 AM Welcome to Connect. This is our place to share updates and keep decisions easy to find.\n  - button \"1 replies\"\n  - button \"Add \ud83d\udc4d reaction\": \ud83d\udc4d 1\n  - button \"Add \u2764\ufe0f reaction\": \u2764\ufe0f\n  - button \"Add \ud83c\udf89 reaction\": \ud83c\udf89\n  - button \"Add \ud83d\udc40 reaction\": \ud83d\udc40\n  - button \"Add \u2705 reaction\": \u2705\n  - button \"Message actions\"\n  - text: DE Demo Engineer Oct 30, 08:30 AM Thanks. Let\u2019s keep follow-ups attached to the original message.\n  - button \"Add \ud83d\udc4d reaction\": \ud83d\udc4d\n  - button \"Add \u2764\ufe0f reaction\": \u2764\ufe0f\n  - button \"Add \ud83c\udf89 reaction\": \ud83c\udf89\n  - button \"Add \ud83d\udc40 reaction\": \ud83d\udc40\n  - button \"Add \u2705 reaction\": \u2705\n  - button \"Message actions\"\n  - textbox \"Reply to thread\":\n    - /placeholder: Reply in thread\u2026\n  - button \"Attach\"\n  - button \"Send message\" [disabled]:\n    - img\n  - text: Replies stay with this message."
+            }
+          },
+          "url": {
+            "state": "captured",
+            "value": {
+              "url": "http://127.0.0.1:47931/",
+              "origin": "http://127.0.0.1:47931",
+              "query_parameter_names": [],
+              "redacted": false
+            }
+          },
+          "history": {
+            "state": "not_requested"
+          },
+          "storage": {
+            "state": "not_requested"
+          }
+        },
+        "completeness": {
+          "status": "complete",
+          "equality_eligible": true,
+          "missing_sections": [],
+          "truncated_sections": []
+        },
+        "status": "completed",
+        "error": null
+      }
+    ],
+    "events": {
+      "retained": 0,
+      "dropped": 0,
+      "items": [],
+      "omissions": {
+        "by_kind": [],
+        "network_transactions": [],
+        "network_transaction_range": null
+      }
+    },
+    "completeness": {
+      "status": "complete",
+      "equality_eligible": true,
+      "missing_sections": [],
+      "truncated_sections": []
+    },
+    "limitations": [
+      "Event sequence records provider receipt order; simultaneous browser causality is not inferred.",
+      "Network content is retained only when selected; Playwright response-body bytes are API results and are not guaranteed to match wire bytes.",
+      "Request bytes are limited to what Playwright exposes; not_exposed does not establish body absence or multipart file coverage.",
+      "Network content reads settle within 5 seconds each and the observer does not request bodies from unfinished responses.",
+      "Playwright scenario events do not expose request initiator stacks; receipt order does not prove causality.",
+      "Storage values are hashed only after declared-secret redaction."
+    ]
+  },
+  "confidence": "observed",
+  "authority": "controlled-replay",
+  "environment": {
+    "id": "Chromium@156.0.8078.79",
+    "platform": "unknown",
+    "architecture": "unknown",
+    "isolation": "process"
+  },
+  "limitations": [
+    "Artifact identity is unavailable for this observation.",
+    "Event sequence records provider receipt order; simultaneous browser causality is not inferred.",
+    "Network content is retained only when selected; Playwright response-body bytes are API results and are not guaranteed to match wire bytes.",
+    "Request bytes are limited to what Playwright exposes; not_exposed does not establish body absence or multipart file coverage.",
+    "Network content reads settle within 5 seconds each and the observer does not request bodies from unfinished responses.",
+    "Playwright scenario events do not expose request initiator stacks; receipt order does not prove causality.",
+    "Storage values are hashed only after declared-secret redaction.",
+    "Browser host platform and architecture were not observed."
+  ],
+  "relationship_coverage": null,
+  "locations": [],
+  "evidence_links": []
+}

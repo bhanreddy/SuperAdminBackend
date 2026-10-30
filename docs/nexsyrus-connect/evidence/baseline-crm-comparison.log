@@ -1,0 +1,331 @@
+✔ manifest orders field feedback after trackable links (0.409542ms)
+✔ default routing, conflicts, and mixed-issue hints do not auto-split (0.94775ms)
+⚠️ GET     401 │ /api/super-admin/crm/feedback/items  (1ms)
+⚠️ POST    403 │ /api/super-admin/crm/feedback  (7ms)
+⚠️ PATCH   403 │ /api/super-admin/crm/feedback/destinations/product  (1ms)
+✖ field feedback is saved, routed, split, and permissioned without duplicate queue items (1503.19725ms)
+⚠️ POST    403 │ /api/super-admin/rbac/kill-switch  (6ms)
+⚠️ POST    403 │ /api/super-admin/rbac/enforce  (1ms)
+⚠️ PATCH   403 │ /api/super-admin/clusters/cluster_a  (1ms)
+⚠️ POST    403 │ /api/super-admin/clusters  (1ms)
+✔ a founder cannot disable school authorization or replace cluster credentials (1215.836625ms)
+⚠️ POST    403 │ /api/super-admin/rbac/kill-switch  (1ms)
+✖ a super admin can still engage the authorization kill switch (2.689417ms)
+⚠️ GET     403 │ /api/super-admin/backups/stats  (0ms)
+⚠️ POST    403 │ /api/super-admin/backups/trigger  (1ms)
+⚠️ POST    403 │ /api/super-admin/posters  (1ms)
+✔ founders cannot read backups or publish posters that every tenant app displays (4.706083ms)
+⚠️ PUT     403 │ /api/super-admin/founder/settings  (1ms)
+⚠️ PATCH   403 │ /api/super-admin/founder/settings/founders/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/toggle  (1ms)
+⚠️ GET     403 │ /api/super-admin/founder/audit-logs  (1ms)
+✅ PUT     200 │ /api/super-admin/founder/settings  (1ms)
+Error listing audit logs: PostgresError: relation "audit_logs" does not exist
+    at ErrorResponse (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/postgres/cjs/src/connection.js:815:30)
+    at handle (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/postgres/cjs/src/connection.js:489:6)
+    at Socket.data (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/postgres/cjs/src/connection.js:324:9)
+    at Socket.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:563:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+    at Readable.push (node:internal/streams/readable:394:5)
+    at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+    at cachedError (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/postgres/cjs/src/query.js:170:23)
+    at new Query (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/postgres/cjs/src/query.js:36:24)
+    at sql (/Users/bhanureddy/Desktop/Single Source of truth/NexsyrusSuperAdmin/SuperAdminBackend/node_modules/postgres/cjs/src/index.js:112:11)
+    at Object.apply (/private/tmp/nexsyrus-connect-baseline-9v91c5wo/src/config/db.js:42:20) {
+  severity_local: 'ERROR',
+  severity: 'ERROR',
+  code: '42P01',
+  position: '299',
+  file: 'parse_relation.c',
+  line: '1469',
+  routine: 'parserOpenTable'
+}
+❌ GET     500 │ /api/super-admin/founder/audit-logs  (1ms)
+✖ a sales founder cannot change organization settings, founder access, or audit history (9.182875ms)
+✅ GET     200 │ /api/super-admin/founder/notifications?user_id=33333333-3333-4333-8333-333333333333&founder_id=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb  (6ms)
+⚠️ DELETE  404 │ /api/super-admin/founder/notifications/ffffffff-ffff-4fff-8fff-ffffffffffff  (1ms)
+⚠️ PATCH   404 │ /api/super-admin/founder/notifications/ffffffff-ffff-4fff-8fff-ffffffffffff/read  (5ms)
+✅ PATCH   200 │ /api/super-admin/founder/notifications/eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee/read  (2ms)
+⚠️ GET     403 │ /api/super-admin/founder/notifications  (1ms)
+✖ notification reads and deletes stay inside the caller account (18.741958ms)
+⚠️ GET     403 │ /api/super-admin/auth/me  (1ms)
+✅ GET     200 │ /api/super-admin/auth/me  (1ms)
+✖ directory email does not grant another account, and an inactive binding does not fall through (2.974458ms)
+✔ login binds an unused super admin email once and will not retarget a used row (2.779125ms)
+⚠️ POST    403 │ /api/super-admin/crm/imports  (6ms)
+⚠️ POST    403 │ /api/super-admin/crm/imports  (1ms)
+✖ school import creates prospects without tenants (1378.086959ms)
+⚠️ POST    403 │ /api/super-admin/crm/leads/e2446615-aead-4214-adcc-8ba9c177840e/tasks  (10ms)
+✖ sales command metrics, isolation, and pilot lifecycle (1382.974916ms)
+✔ activation and ambiguous school identity are explicit (1379.920625ms)
+✔ migration backfill preserves uncertain history and projects follow-ups (5.043375ms)
+✅ POST    201 │ /api/public/enquiries  (4ms)
+✅ POST    201 │ /api/public/enquiries  (1ms)
+✔ public ingestion accepts phone-only leads and blocks privileged columns (18.313ms)
+⚠️ POST    403 │ /api/super-admin/crm/founders/sync  (4ms)
+✖ scope fails closed and founder A cannot touch founder B (5.573125ms)
+✖ example A wins a school sale and activates only when live (0.881917ms)
+⚠️ POST    400 │ /api/super-admin/crm/leads/8e26b43f-e64c-480b-8f9f-d7e120a00842/tasks  (2ms)
+✖ example B recovers a crashed handoff and keeps loss history (4.555208ms)
+✔ automation retries dedupe and later occurrences still run (11.704583ms)
+[authenticateUser] Unexpected error: bind message supplies 2 parameters, but prepared statement "" requires 0
+❌ POST    500 │ /api/super-admin/crm/leads/12841de8-406a-4499-aa30-ebc241978e73/stage  (2ms)
+✅ POST    200 │ /api/super-admin/crm/leads/12841de8-406a-4499-aa30-ebc241978e73/stage  (5ms)
+✖ concurrent stage updates conflict once (8.216833ms)
+✔ manifest orders trackable links after founder sales command (0.436291ms)
+✔ destinations fail closed and external stores are not owned-site coverage (0.897791ms)
+✖ ingress signatures reject replay windows and match the website canonical body (0.628333ms)
+✖ open classification and page URL redaction (0.439916ms)
+⚠️ POST    404 │ /api/internal/track/resolve  (1ms)
+⚠️ POST    401 │ /api/internal/track/resolve  (0ms)
+⚠️ GET     404 │ /api/super-admin/crm/track-links/1cc3f765-7f20-4151-a233-2b5aa9ee5190  (5ms)
+⚠️ POST    403 │ /api/super-admin/crm/track-links  (2ms)
+⚠️ GET     401 │ /api/super-admin/crm/track-links  (0ms)
+✅ GET     200 │ /api/super-admin/crm/track-links/1cc3f765-7f20-4151-a233-2b5aa9ee5190  (2ms)
+✅ POST    201 │ /api/public/enquiries  (1ms)
+✔ trackable links attribute opens without merging a different school (1449.258334ms)
+
+❌  Missing required environment variable: SCHOOL_SUPABASE_URL
+
+✖ test/schoolPackage/render.test.js (74.141791ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 12
+ℹ fail 14
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8873.159791
+
+✖ failing tests:
+
+test at test/crm/fieldFeedback.test.js:56:1
+✖ field feedback is saved, routed, split, and permissioned without duplicate queue items (1503.19725ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  403 !== 200
+
+      at TestContext.<anonymous> (/private/tmp/nexsyrus-connect-baseline-9v91c5wo/test/crm/fieldFeedback.test.js:162:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/platformBoundary.test.js:189:1
+✖ a super admin can still engage the authorization kill switch (2.689417ms)
+  AssertionError [ERR_ASSERTION]: {"error":"Account is inactive or not authorized"}
+
+  403 !== 200
+
+      at TestContext.<anonymous> (/private/tmp/nexsyrus-connect-baseline-9v91c5wo/test/crm/platformBoundary.test.js:192:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/platformBoundary.test.js:207:1
+✖ a sales founder cannot change organization settings, founder access, or audit history (9.182875ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  500 !== 200
+
+      at TestContext.<anonymous> (/private/tmp/nexsyrus-connect-baseline-9v91c5wo/test/crm/platformBoundary.test.js:224:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 500,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/platformBoundary.test.js:228:1
+✖ notification reads and deletes stay inside the caller account (18.741958ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  403 !== 200
+
+      at TestContext.<anonymous> (/private/tmp/nexsyrus-connect-baseline-9v91c5wo/test/crm/platformBoundary.test.js:246:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/platformBoundary.test.js:250:1
+✖ directory email does not grant another account, and an inactive binding does not fall through (2.974458ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  200 !== 403
+
+      at TestContext.<anonymous> (/private/tmp/nexsyrus-connect-baseline-9v91c5wo/test/crm/platformBoundary.test.js:254:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 403,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/prospectFlow.test.js:32:1
+✖ school import creates prospects without tenants (1378.086959ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  403 !== 202
+
+      at TestContext.<anonymous> (/private/tmp/nexsyrus-connect-baseline-9v91c5wo/test/crm/prospectFlow.test.js:92:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 202,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/salesCommandMetrics.test.js:37:1
+✖ sales command metrics, isolation, and pilot lifecycle (1382.974916ms)
+  AssertionError [ERR_ASSERTION]: {"error":"Account is inactive or not authorized"}
+
+  403 !== 200
+
+      at TestContext.<anonymous> (/private/tmp/nexsyrus-connect-baseline-9v91c5wo/test/crm/salesCommandMetrics.test.js:127:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/salesFoundation.test.js:263:1
+✖ scope fails closed and founder A cannot touch founder B (5.573125ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  403 !== 200
+
+      at TestContext.<anonymous> (/private/tmp/nexsyrus-connect-baseline-9v91c5wo/test/crm/salesFoundation.test.js:265:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/salesFoundation.test.js:297:1
+✖ example A wins a school sale and activates only when live (0.881917ms)
+  TypeError: Cannot read properties of undefined (reading 'id')
+      at TestContext.<anonymous> (/private/tmp/nexsyrus-connect-baseline-9v91c5wo/test/crm/salesFoundation.test.js:302:172)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7)
+
+test at test/crm/salesFoundation.test.js:416:1
+✖ example B recovers a crashed handoff and keeps loss history (4.555208ms)
+  AssertionError [ERR_ASSERTION]: {"error":"Owner must be an active founder","code":"OWNER_INACTIVE"}
+
+  400 !== 200
+
+      at TestContext.<anonymous> (/private/tmp/nexsyrus-connect-baseline-9v91c5wo/test/crm/salesFoundation.test.js:431:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 400,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/salesFoundation.test.js:564:1
+✖ concurrent stage updates conflict once (8.216833ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+    [
+      200,
+  +   500
+  -   409
+    ]
+
+      at TestContext.<anonymous> (/private/tmp/nexsyrus-connect-baseline-9v91c5wo/test/crm/salesFoundation.test.js:575:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 200, 500 ],
+    expected: [ 200, 409 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test/crm/trackableLinks.test.js:48:1
+✖ ingress signatures reject replay windows and match the website canonical body (0.628333ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/private/NexsyrusWebsite/apps/SchoolIMS/src/lib/trackingIngress.ts' imported from /private/tmp/nexsyrus-connect-baseline-9v91c5wo/test/crm/trackableLinks.test.js
+      at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+      at moduleResolve (node:internal/modules/esm/resolve:865:10)
+      at defaultResolve (node:internal/modules/esm/resolve:991:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:719:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:736:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:765:52)
+      at #resolve (node:internal/modules/esm/loader:701:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:621:35)
+      at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:650:32)
+      at TracingChannel.tracePromise (node:diagnostics_channel:350:14) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///private/NexsyrusWebsite/apps/SchoolIMS/src/lib/trackingIngress.ts'
+  }
+
+test at test/crm/trackableLinks.test.js:63:1
+✖ open classification and page URL redaction (0.439916ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/private/NexsyrusWebsite/apps/SchoolIMS/src/lib/trackingIngress.ts' imported from /private/tmp/nexsyrus-connect-baseline-9v91c5wo/test/crm/trackableLinks.test.js
+      at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+      at moduleResolve (node:internal/modules/esm/resolve:865:10)
+      at defaultResolve (node:internal/modules/esm/resolve:991:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:719:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:736:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:765:52)
+      at #resolve (node:internal/modules/esm/loader:701:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:621:35)
+      at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:650:32)
+      at TracingChannel.tracePromise (node:diagnostics_channel:350:14) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///private/NexsyrusWebsite/apps/SchoolIMS/src/lib/trackingIngress.ts'
+  }
+
+test at test/schoolPackage/render.test.js:1:1
+✖ test/schoolPackage/render.test.js (74.141791ms)
+  'test failed'
