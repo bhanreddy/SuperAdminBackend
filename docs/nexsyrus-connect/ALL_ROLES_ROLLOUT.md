@@ -18,5 +18,5 @@ This rollout supersedes the CA exclusions described in the original implementati
 - Isolated validation: 62/62 frontend tests, 41/41 backend tests (30 Connect and 11 accountant-access tests), TypeScript and a clean Expo production export passed.
 - Control-plane migration 33 applied successfully. All six current active accounts are enrolled, including the existing Lead CA. The journal and automatic-enrollment trigger were verified.
 - Catalyst AppSail deployment `78544000000074002` succeeded in the existing Development environment serving the live API proxy. Existing runtime configuration was retained. Direct and proxy health checks returned HTTP 200; unauthenticated Connect bootstrap returned HTTP 401.
-- Frontend deployment is tracked by Cloudflare build `97add760-6f9d-4ad0-b97f-4fea109f74ce`.
+- Cloudflare build `97add760-6f9d-4ad0-b97f-4fea109f74ce` succeeded. Deployment `c4964359-8bf8-4344-b3f2-ecdf606e1ec8` serves version `afdc0f4f-f6aa-4711-aed8-b5831a4c4c52` at 100% traffic. The public Connect route and entry bundle were verified; the old role-blocking screen is absent.
 - No production test accounts, channels or messages were created. Existing unrelated Books and fingerprint work was excluded from the release.
