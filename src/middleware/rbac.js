@@ -171,8 +171,8 @@ async function authenticateUser(req, res, next) {
       if ([ROLES.CA,ROLES.CA_LEAD].includes(normRole)) {
         const path = req.originalUrl.split('?')[0].replace(/\/+$/, '');
         const accountPath = ['/api/super-admin/auth/me', '/api/super-admin/auth/logout', '/api/super-admin/auth/change-password'].includes(path);
-        if (req.user.mustChangePassword && !accountPath) return res.status(403).json({ error: 'PASSWORD_CHANGE_REQUIRED', details: 'Change your temporary password before accessing Books.' });
-        if (!accountPath && !/^\/api\/super-admin\/books(?:\/|$)/.test(path)) return res.status(403).json({ error: 'CA_BOOKS_ONLY', details: 'This account can access Books only.' });
+        if (req.user.mustChangePassword && !accountPath) return res.status(403).json({ error: 'PASSWORD_CHANGE_REQUIRED', details: 'Change your temporary password before accessing Books or Connect.' });
+        if (!accountPath && !/^\/api\/super-admin\/(?:books|connect)(?:\/|$)/.test(path)) return res.status(403).json({ error: 'CA_MODULE_ACCESS_ONLY', details: 'This account can access Books and Connect only.' });
       }
       return next();
     }

@@ -4,7 +4,7 @@ Review date: 30 October 2026. Local source, HTTP and actual PostgreSQL/RLS valid
 
 ## Controls implemented and exercised
 
-- Existing internal JWT/session authentication is reused. Connect requires `tokenSource=internal` and a validated internal session, rejecting legacy school/Supabase login even when its email matches an internal employee. CA/CA_LEAD and non-company employees are excluded. Roles and active status come from the current database.
+- Existing internal JWT/session authentication is reused. Connect requires `tokenSource=internal` and a validated internal session, rejecting legacy school/Supabase login even when its email matches an internal employee. All app roles, including CA/CA_LEAD, may participate when active company members. Non-company accounts remain excluded. Roles and active status come from the current database.
 - Every REST service transaction explicitly uses NOBYPASSRLS collaboration_api. API IDs and school context cannot grant membership. Server-local employee/company settings are transaction scoped, including under pooled connections. Multi-company tests cover the same employee enrolled in two organizations.
 - Private channels require explicit membership for content. Founders can administer metadata/membership, but must explicitly join before reading. Direct messages require one of the immutable pair; founders cannot inspect other employees' DMs.
 - RLS protects messages, replies, reactions, mentions, reads, notifications, files, pins, saves and task source links. Anon/authenticated public-schema grants are explicitly revoked on Connect tables. SECURITY DEFINER helpers use fixed search paths and restricted execute grants; browser clients cannot invoke privileged mutators.

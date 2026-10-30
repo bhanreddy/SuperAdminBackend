@@ -156,7 +156,7 @@ function createConnectService(db, { organizationCode = 'nexsyrus' } = {}) {
         if (conversationId) await readable(tx, conversationId);
         return tx`SELECT u.id,u.full_name,u.employee_id,u.role FROM internal_users u
           JOIN collaboration_organization_members om ON om.user_id=u.id AND om.organization_id=${org.id}
-          WHERE u.status='ACTIVE' AND u.role NOT IN ('CA','CA_LEAD')
+          WHERE u.status='ACTIVE'
           AND (u.full_name ILIKE ${`%${q}%`} OR u.employee_id ILIKE ${`%${q}%`})
           AND (${conversationId || null}::uuid IS NULL OR collaboration_can_read(${conversationId || null}::uuid,u.id))
           ORDER BY u.full_name,u.id LIMIT 40`;
@@ -307,7 +307,7 @@ function createConnectService(db, { organizationCode = 'nexsyrus' } = {}) {
           await tx`DELETE FROM collaboration_organization_members WHERE organization_id=${org.id} AND user_id=${targetId}`;
         else {
           const [target] =
-            await tx`SELECT id FROM internal_users WHERE id=${targetId} AND status='ACTIVE' AND role NOT IN ('CA','CA_LEAD')`;
+            await tx`SELECT id FROM internal_users WHERE id=${targetId} AND status='ACTIVE'`;
           ensure(target, 'Active internal employee required', 400);
           await tx`INSERT INTO collaboration_organization_members(organization_id,user_id) VALUES(${org.id},${targetId}) ON CONFLICT DO NOTHING`;
         }
@@ -547,7 +547,7 @@ function createConnectService(db, { organizationCode = 'nexsyrus' } = {}) {
           await tx`SELECT id,name,purpose FROM collaboration_channels WHERE organization_id=${org.id} AND name ILIKE ${`%${escaped}%`} ORDER BY name LIMIT 30`;
         const employees =
           await tx`SELECT u.id,u.full_name,u.employee_id,u.role FROM internal_users u JOIN collaboration_organization_members om ON om.user_id=u.id
-          WHERE om.organization_id=${org.id} AND u.status='ACTIVE' AND u.role NOT IN ('CA','CA_LEAD') AND u.full_name ILIKE ${`%${escaped}%`} ORDER BY u.full_name LIMIT 30`;
+          WHERE om.organization_id=${org.id} AND u.status='ACTIVE' AND u.full_name ILIKE ${`%${escaped}%`} ORDER BY u.full_name LIMIT 30`;
         return { messages, channels, employees };
       });
     },

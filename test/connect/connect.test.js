@@ -38,9 +38,9 @@ function mock(relative, exports) {
 }
 const send = (user, conv, body = 'Hello', extra = {}) =>
   service.send(user, conv, { client_id: randomUUID(), body, ...extra });
-async function employee(name, role = 'QA') {
+async function employee(name, role = 'QA', status = 'ACTIVE') {
   const [u] =
-    await sql`INSERT INTO internal_users(full_name,email,employee_id,role) VALUES(${name},${name + '@example.test'},${name},${role}) RETURNING *`;
+    await sql`INSERT INTO internal_users(full_name,email,employee_id,role,status) VALUES(${name},${name + '@example.test'},${name},${role},${status}) RETURNING *`;
   const [s] =
     await sql`INSERT INTO internal_user_sessions(user_id,refresh_token_hash,expires_at) VALUES(${u.id},${randomUUID()},now()+interval '1 day') RETURNING id`;
   return {
@@ -83,6 +83,7 @@ test.before(async () => {
       schema.indexOf('-- 5. School Requirements'),
     ),
   );
+  await sql`ALTER TABLE internal_users ADD COLUMN IF NOT EXISTS must_change_password boolean NOT NULL DEFAULT false`;
   await sql`CREATE TABLE audit_logs(user_id uuid,action text,entity text,entity_id text,details jsonb,created_at timestamptz)`;
   await sql`CREATE TABLE schools(id integer PRIMARY KEY,name text)`;
   await sql.unsafe(
@@ -110,6 +111,7 @@ test.before(async () => {
   ca = await employee('ca', 'CA');
   await migrate(sql);
   outsider = await employee('external');
+  await sql`DELETE FROM collaboration_organization_members WHERE user_id=${outsider.id}`;
   const [otherOrg] =
     await sql`INSERT INTO collaboration_organizations(code,name) VALUES('other','Other company') RETURNING id`;
   await sql`INSERT INTO collaboration_organization_members(organization_id,user_id) VALUES(${otherOrg.id},${outsider.id})`;
@@ -155,7 +157,7 @@ test.after(async () => {
   if (db) await db.close();
 });
 
-test('M1 actual employee JWT authentication rejects missing, forged, revoked, suspended and CA identities', async () => {
+test('M1 actual employee JWT authentication rejects missing, forged, revoked, suspended and foreign-company identities', async () => {
   const url = '/api/super-admin/connect/bootstrap';
   assert.equal((await request(app).get(url)).status, 401);
   assert.equal(
@@ -205,7 +207,7 @@ test('M1 actual employee JWT authentication rejects missing, forged, revoked, su
         .get(url)
         .set('Authorization', 'Bearer ' + ca.token)
     ).status,
-    403,
+    200,
   );
   assert.equal(
     (
@@ -828,11 +830,11 @@ test('company scope is enforced even when the same employee belongs to another c
     0,
   );
 });
-test('explicit migration runner journals both migrations atomically and safely skips a repeat run', async () => {
+test('explicit migration runner journals all migrations atomically and safely skips a repeat run', async () => {
   await migrate(sql);
   assert.equal(
     (await sql`SELECT * FROM collaboration_schema_migrations`).length,
-    2,
+    3,
   );
 });
 test('Office validation accepts bounded DOCX container structure and rejects macros and expansion bombs', async () => {
@@ -936,4 +938,126 @@ test('actual PostgreSQL recovery history walks 215 missed messages in ascending 
       .sequence,
     '1',
   );
+});
+
+test('all app roles bootstrap, find accountants, join public channels and message without private/admin access', async () => {
+  const { ROLES } = require('../../src/config/rbac');
+  for (const role of Object.values(ROLES)) {
+    const user = await employee('allroles_' + role.toLowerCase(), role);
+    const result = await request(app)
+      .get('/api/super-admin/connect/bootstrap')
+      .set('Authorization', 'Bearer ' + user.token);
+    assert.equal(result.status, 200, role + ': ' + JSON.stringify(result.body));
+    assert.equal(result.body.self.role, role);
+    const admin = ['FOUNDER', 'SUPER_ADMIN'].includes(role);
+    assert.equal(result.body.can_manage, admin);
+    assert.ok(
+      !result.body.channels.some((c) => c.id === privateChannel.id) || admin,
+    );
+    assert.ok(
+      (await service.employees(user, 'ca')).some((u) => u.id === ca.id),
+    );
+    await service.membership(user, channel.id, user.id);
+    const sent = await send(user, channel.id, 'Public hello from ' + role);
+    assert.equal(sent.sender_id, user.id);
+    const conversation = await service.directMessage(user, ca.id);
+    const message = await send(
+      user,
+      conversation.id,
+      'Private hello from ' + role,
+      { mentions: [ca.id] },
+    );
+    assert.equal(
+      (await service.getMessage(ca, message.id)).body,
+      'Private hello from ' + role,
+    );
+    await assert.rejects(
+      service.getMessage(bob, message.id),
+      (e) => e.status === 404,
+    );
+    if (!admin) {
+      await assert.rejects(
+        service.createChannel(user, {
+          name: 'denied-' + role.toLowerCase().replace(/_/g, '-'),
+        }),
+        (e) => e.code === '42501' || e.status === 403,
+      );
+      await assert.rejects(
+        service.provisionEmployee(user, outsider.id),
+        (e) => e.status === 403,
+      );
+      await assert.rejects(
+        service.membership(user, privateChannel.id, user.id),
+        (e) => e.status === 403 || e.status === 404,
+      );
+    }
+  }
+});
+
+test('account activation enrolls new roles while explicit membership removal survives profile changes and migration reruns', async () => {
+  const invited = await employee('invited_account', 'CA_LEAD', 'INVITED');
+  assert.equal(
+    (
+      await sql`SELECT * FROM collaboration_organization_members WHERE user_id=${invited.id}`
+    ).length,
+    0,
+  );
+  await assert.rejects(service.bootstrap(invited), (e) => e.status === 403);
+  await sql`UPDATE internal_users SET status='ACTIVE' WHERE id=${invited.id}`;
+  assert.equal((await service.bootstrap(invited)).self.role, 'CA_LEAD');
+  await service.provisionEmployee(root, invited.id, true);
+  await sql`UPDATE internal_users SET full_name='Updated accountant',role='CA',status='ACTIVE' WHERE id=${invited.id}`;
+  await migrate(sql);
+  await assert.rejects(service.bootstrap(invited), (e) => e.status === 403);
+  await service.provisionEmployee(root, invited.id);
+  assert.equal((await service.bootstrap(invited)).self.role, 'CA');
+});
+
+test('CA and Lead CA retain the mandatory password change and cannot access school/users APIs or prefix lookalikes', async () => {
+  const { authenticateUser } = require('../../src/middleware/rbac');
+  const restricted = express();
+  restricted.use(express.json());
+  restricted.use(
+    '/api/super-admin/connect',
+    createConnectRouter({
+      service,
+      authenticate: authenticateUser,
+      extensions: extras,
+    }),
+  );
+  for (const url of [
+    '/api/super-admin/schools',
+    '/api/super-admin/users',
+    '/api/super-admin/connect-unsafe',
+    '/api/super-admin/books-unsafe',
+  ])
+    restricted.get(url, authenticateUser, (_req, res) =>
+      res.json({ unexpected: true }),
+    );
+  for (const role of ['CA', 'CA_LEAD']) {
+    const user = await employee('password_' + role.toLowerCase(), role);
+    await sql`UPDATE internal_users SET must_change_password=true WHERE id=${user.id}`;
+    let r = await request(restricted)
+      .get('/api/super-admin/connect/bootstrap')
+      .set('Authorization', 'Bearer ' + user.token);
+    assert.equal(r.status, 403);
+    assert.equal(r.body.error, 'PASSWORD_CHANGE_REQUIRED');
+    await sql`UPDATE internal_users SET must_change_password=false WHERE id=${user.id}`;
+    r = await request(restricted)
+      .get('/api/super-admin/connect/bootstrap')
+      .set('Authorization', 'Bearer ' + user.token);
+    assert.equal(r.status, 200);
+    for (const url of [
+      '/api/super-admin/schools',
+      '/api/super-admin/users',
+      '/api/super-admin/connect-unsafe',
+      '/api/super-admin/books-unsafe',
+    ]) {
+      r = await request(restricted)
+        .get(url)
+        .set('Authorization', 'Bearer ' + user.token);
+      assert.equal(r.status, 403, url);
+      assert.equal(r.body.error, 'CA_MODULE_ACCESS_ONLY');
+    }
+  }
 });

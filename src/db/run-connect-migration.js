@@ -10,6 +10,7 @@ async function migrate(sql) {
     for (const name of [
       '31_nexsyrus_connect.sql',
       '32_connect_extensions.sql',
+      '33_connect_all_roles.sql',
     ]) {
       const [done] =
         await connection`SELECT name FROM collaboration_schema_migrations WHERE name=${name}`;
@@ -37,7 +38,7 @@ async function migrate(sql) {
 if (require.main === module) {
   if (!process.argv.includes('--apply')) {
     console.log(
-      'Review src/db/migrations/31_nexsyrus_connect.sql, then explicitly run node src/db/run-connect-migration.js --apply against the control-plane SCHOOL_DATABASE_URL.',
+      'Review the Connect migrations in src/db/migrations, then explicitly run node src/db/run-connect-migration.js --apply against the control-plane SCHOOL_DATABASE_URL.',
     );
   } else {
     const sql = require('../config/db');

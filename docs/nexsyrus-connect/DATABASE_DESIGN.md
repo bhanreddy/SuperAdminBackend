@@ -14,7 +14,7 @@ No live migration has been executed. Applying these files creates roles, grants,
 ## Entities
 
 - `collaboration_organizations`: internal company registry; one initial `nexsyrus` row, no school identifiers or accounting-entity dependency.
-- `collaboration_organization_members`: company access referencing existing internal_users. Initial active non-CA employees are enrolled at migration time. New employees are explicitly provisioned by founders/admins through Company access. Deactivation in the existing directory also blocks access immediately.
+- `collaboration_organization_members`: company access referencing existing internal_users. Migration 33 enrolls all existing active internal accounts. A trigger enrolls newly created active accounts and accounts transitioning to ACTIVE, regardless of role. Profile/role edits and logins do not restore explicitly removed membership; founders/admins can restore it through Company access. Deactivation in the existing directory also blocks access immediately.
 - `collaboration_conversations`: common channel/DM history identity, company FK, kind, immutable DM pair, transactional sequence counter and timestamps. Canonical ordered DM pair has a unique company/pair constraint.
 - `collaboration_channels`: same primary key as its conversation, company FK, unique company/name, category, public/private visibility, description, purpose, announcements-only flag and archive time. Public means discoverable/joinable by internal employees, not anonymously readable.
 - `collaboration_channel_members`: unique channel/employee, member/manager role; reverse employee/channel index.

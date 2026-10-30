@@ -1,3 +1,10 @@
+## All-role rollout — 30 October 2026
+
+- Enable Connect for all 16 app roles, including accountants and read-only admins.
+- Enroll existing active accounts and automatically enroll future active/activated accounts.
+- Preserve company membership revocation, private conversations, administrator controls and non-Connect permissions.
+- See [rollout details](ALL_ROLES_ROLLOUT.md).
+
 # NexSyrus Connect change log
 
 Subsequent authorized release on 30 October 2026: Connect source pushed to both GitHub main branches; backend deployed to the existing active Catalyst AppSail environment; two additive migrations applied; frontend deployed through Cloudflare Builds. See DEPLOYMENT_REPORT.md for verification and remaining realtime/FCM configuration gaps. Unrelated local changes were preserved.
