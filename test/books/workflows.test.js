@@ -70,6 +70,8 @@ test.before(async () => {
   await sql.unsafe("CREATE TABLE internal_users(id uuid PRIMARY KEY,role text); CREATE TABLE internal_user_permission_overrides(user_id uuid,permission text,effect text);");
   const registryConnection=await sql.reserve();
   try { await registryConnection.unsafe(fs.readFileSync(path.join(__dirname,'../../src/db/migrations/29_books_companies.sql'),'utf8')); } finally {registryConnection.release();}
+  const reportingConnection = await sql.reserve();
+  try { await reportingConnection.unsafe(fs.readFileSync(path.join(__dirname,'../../src/db/migrations/32_books_statements.sql'),'utf8')); } finally { reportingConnection.release(); }
   books = createBooksService(sql);
   await books.saveSettings(
     { organization_name: 'NexSyrus', state_code: '36' },

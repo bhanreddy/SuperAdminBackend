@@ -25,6 +25,7 @@ function text(value, max, required = true) {
   ensure(
     result.length <= max &&
       (!required || result.length > 0) &&
+       // eslint-disable-next-line no-control-regex -- Reject control characters in untrusted input.
       !/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(result),
     `Text must be ${required ? '1' : '0'}–${max} characters`,
   );

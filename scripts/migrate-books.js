@@ -6,7 +6,7 @@ async function migrateBooks() {
   try {
     const connection = await sql.reserve();
     try {
-      for (const file of ['26_books.sql', '27_books_workflows.sql', '28_books_ca_access.sql', '29_books_companies.sql', '30_books_finance_connections.sql']) {
+      for (const file of ['26_books.sql', '27_books_workflows.sql', '28_books_ca_access.sql', '29_books_companies.sql', '30_books_finance_connections.sql', '32_books_statements.sql']) {
         await connection.unsafe(
           fs.readFileSync(
             path.join(__dirname, '../src/db/migrations', file),

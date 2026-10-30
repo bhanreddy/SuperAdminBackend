@@ -317,6 +317,7 @@ function normalizeField(key, value) {
   }
   if (typeof value !== 'string' && typeof value !== 'number') throw coded(400, `${key} has an invalid type`, 'INVALID_FIELD');
   const text = String(value).trim();
+      // eslint-disable-next-line no-control-regex -- Reject control characters in untrusted input.
   if (/[\u0000\r\n]/.test(text)) throw coded(400, `${key} cannot contain line breaks`, 'INVALID_FIELD');
   if (key === 'school_code' && text && !/^[A-Z0-9-]{2,32}$/.test(text)) throw coded(400, 'School code must be uppercase letters, numbers, or hyphens', 'INVALID_FIELD');
   if (key === 'slug' && text && !SLUG.test(text)) throw coded(400, 'Slug must be lowercase letters and numbers', 'INVALID_FIELD');

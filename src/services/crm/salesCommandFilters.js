@@ -41,6 +41,7 @@ function optionalUuid(value, label) {
 function optionalToken(value, max) {
   if (value == null || value === '') return null;
   const text = String(value).trim();
+                                    // eslint-disable-next-line no-control-regex -- Reject control characters in untrusted input.
   if (!text || text.length > max || /[\u0000-\u001f]/.test(text)) reject('Filter text is invalid', 'BAD_FILTER');
   return text;
 }
@@ -49,6 +50,7 @@ function geoToken(value) {
   if (value == null || value === '') return null;
   const text = String(value).trim().toLowerCase();
   if (text === 'unknown') return 'unknown';
+                          // eslint-disable-next-line no-control-regex -- Reject control characters in untrusted input.
   if (text.length > 80 || /[\u0000-\u001f]/.test(text)) reject('Geography filter is invalid', 'BAD_FILTER');
   return text;
 }

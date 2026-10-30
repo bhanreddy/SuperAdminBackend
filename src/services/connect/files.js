@@ -62,6 +62,7 @@ function validateOffice(buffer, extension) {
     check(
       !names.has(name) &&
         !name.includes('..') &&
+         // eslint-disable-next-line no-control-regex -- Reject control characters in untrusted input.
         !/[\\\x00]/.test(name) &&
         !name.startsWith('/') &&
         !/vba|macros|embeddings\//i.test(name),

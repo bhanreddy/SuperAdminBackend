@@ -17,7 +17,7 @@ function createOrganizationContext(db) {
     const adapted = (...args) => tx(...args);
     // Reuse the request transaction: journal immutability checks require the header
     // and its lines to share the top-level transaction ID, including their xmin.
-    adapted.begin = fn => fn(adapted);
+    adapted.begin = (...args) => args.at(-1)(adapted);
     adapted.json = (...args) => tx.json(...args);
     adapted.unsafe = (...args) => tx.unsafe(...args);
     return adapted;
@@ -36,7 +36,8 @@ function createOrganizationContext(db) {
     ensure(row && /^(public|books_[a-z0-9_]+)$/.test(row.schema_name), 'Company books are unavailable', 503);
     req.booksCompany = company;
     req.user = { ...req.user, permissions: company.permissions };
-    return db.begin(async tx => {
+    const reportRead = req.method === 'GET' && (/^\/(reports|dashboard|accounts)$/.test(req.path) || /^\/accounts\/[^/]+\/ledger$/.test(req.path));
+    return db.begin(reportRead ? 'isolation level repeatable read' : '', async tx => {
       await tx`SELECT set_config('search_path',${`"${row.schema_name}", pg_catalog`},true)`;
       return context.run(transactionAdapter(tx), fn);
     });

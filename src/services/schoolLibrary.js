@@ -172,6 +172,7 @@ function zipNamed(folder, files) {
 
 function quoteEnv(value) {
   const text = String(value ?? '');
+      // eslint-disable-next-line no-control-regex -- Reject control characters in untrusted input.
   if (/[\u0000\r\n]/.test(text)) throw new Error('Environment values cannot contain line breaks');
   if (/[\s#"'\\=]/.test(text)) return JSON.stringify(text);
   return text;
@@ -238,6 +239,7 @@ function patchEasJson(body, identity) {
 // Keep every unrelated source byte; replace only public API values in build inputs.
 function patchFolderApi(files, apiUrl) {
   if (!apiUrl) return files;
+      // eslint-disable-next-line no-control-regex -- Reject control characters in untrusted input.
   if (/[\u0000\r\n]/.test(apiUrl)) throw new Error('Unsafe school API URL');
   return files.map(file => {
     if (!['.env', 'env', 'eas.json'].includes(file.rel)) return file;
@@ -298,7 +300,7 @@ function patchSchoolConfig(body, identity) {
     section = section.replace(pattern, (_, prefix) => prefix + JSON.stringify(value || ''));
   }
   section = section.replace(/(websiteGallery:\s*{\s*enabled:\s*)(true|false)/, (_, prefix) => prefix + Boolean(identity.config.website_gallery_enabled));
-  const replaceProperty = (input, key, val) => input.replace(new RegExp('(' + key + ':\\s*)([\"\'][^\"\']*[\"\']|\\[[^\\]]*\\])'), (_, prefix) => prefix + JSON.stringify(val));
+  const replaceProperty = (input, key, val) => input.replace(new RegExp('(' + key + ':\\s*)(["\'][^"\']*["\']|\\[[^\\]]*\\])'), (_, prefix) => prefix + JSON.stringify(val));
   for (const [key, val] of Object.entries({ accent: identity.config.accent, ribbonTagline: identity.config.ribbon_tagline, ribbonTitle: identity.config.ribbon_title, ribbonGradient: identity.config.ribbon, statusBarOnRibbon: identity.config.status_bar_on_ribbon })) {
     if (val != null) section = replaceProperty(section, key, val);
   }

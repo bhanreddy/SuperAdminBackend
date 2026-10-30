@@ -6,7 +6,7 @@ async function initializeCompanyBooks(db, schema, name) {
     const [existing] = await tx`SELECT to_regclass(${schema + '.books_settings'}) AS table_name`;
     await tx.unsafe(`CREATE SCHEMA IF NOT EXISTS "${schema}"`);
     await tx`SELECT set_config('search_path',${`"${schema}", pg_catalog`},true)`;
-    for (const file of ['26_books.sql','27_books_workflows.sql']) {
+    for (const file of ['26_books.sql','27_books_workflows.sql','32_books_statements.sql']) {
       const migration = fs.readFileSync(path.join(__dirname,'../../db/migrations',file),'utf8').replace(/^BEGIN;\s*$/gm,'').replace(/^COMMIT;\s*$/gm,'');
       await tx.unsafe(migration);
     }

@@ -28,7 +28,7 @@ router.post(['/login','/ca/login'], async (req, res) => {
     const rawIdentifier = req.body.identifier || req.body.email;
     const password = req.body.password;
 
-    if (!rawIdentifier || !password) {
+    if (typeof rawIdentifier !== 'string' || !rawIdentifier.trim() || typeof password !== 'string' || !password || password.length > 256) {
       return res.status(400).json({ error: 'Email, phone, or employee ID and password are required' });
     }
 
@@ -265,6 +265,23 @@ router.post(['/login','/ca/login'], async (req, res) => {
 // GET /api/super-admin/auth/me
 router.get('/me', authenticateUser, async (req, res) => {
   try {
+    if (req.user.legacyDirectory) {
+      const actor = req.superAdmin;
+      return sendResponse(res, 200, {
+        user: req.user,
+        role: req.user.role,
+        permissions: req.user.permissions,
+        assignedSchools: req.user.assignedSchoolIds,
+        isSuperAdmin: actor.isSuperAdmin,
+        admin: actor.isSuperAdmin ? {
+          id: actor.id, email: actor.email, full_name: actor.fullName, is_active: true,
+        } : null,
+        founder: actor.founderId ? {
+          id: actor.founderId, user_id: actor.id, email: actor.email,
+          full_name: actor.fullName, role: actor.founderRole, is_active: true,
+        } : null,
+      });
+    }
     return sendResponse(res, 200, {
       user: req.user,
       role: req.user.role,
@@ -317,7 +334,7 @@ router.post('/logout', authenticateUser, async (req, res) => {
 router.post('/change-password', authenticateUser, async (req, res) => {
   try {
     const { newPassword } = req.body;
-    if (!newPassword || newPassword.length < 8) {
+    if (typeof newPassword !== 'string' || newPassword.length < 8 || newPassword.length > 256) {
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
 

@@ -42,7 +42,7 @@ function parseExcelDate(value) {
   }
 
   // 3b. DD-MM-YYYY or DD/MM/YYYY
-  const dmyMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  const dmyMatch = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
   if (dmyMatch) {
     const [, dd, mm, yyyy] = dmyMatch;
     const isoStr = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
@@ -51,7 +51,7 @@ function parseExcelDate(value) {
   }
 
   // 3c. M/D/YY (short year)
-  const mdyyMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+  const mdyyMatch = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2})$/);
   if (mdyyMatch) {
     const [, mm, dd, yy] = mdyyMatch;
     const fullYear = parseInt(yy) > 50 ? '19' + yy : '20' + yy;

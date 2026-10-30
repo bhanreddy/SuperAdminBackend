@@ -59,11 +59,13 @@ test.before(async () => {
   );
   await apply("26_books.sql");
   await apply("27_books_workflows.sql");
+
   await sql.unsafe(`CREATE TABLE expenses(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),title text,description text,school_id int,amount numeric(12,2),category text,status text,receipt_url text,created_at timestamptz DEFAULT now());
     CREATE TABLE collections(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),amount numeric(12,2),status text,payment_mode text,month int,year int,notes text,created_at timestamptz DEFAULT now());
     CREATE TABLE billing_documents(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),document_type text,document_number text,status text,total_amount numeric(12,2),taxable_value numeric(12,2),client_legal_name text,issued_at timestamptz,cgst_amount numeric,sgst_amount numeric,igst_amount numeric);
     CREATE TABLE payroll_runs(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),employee_id uuid DEFAULT gen_random_uuid(),payroll_year int,payroll_month int,gross_pay numeric,net_pay numeric,pf_deduction numeric,esi_deduction numeric,other_deductions numeric,status text,paid_at timestamptz);`);
   await apply("30_books_finance_connections.sql");
+  await apply("32_books_statements.sql");
   books = createBooksService(sql);
 });
 test.after(async () => {
@@ -217,6 +219,7 @@ test("migration is repeatable and historical import is explicit, bounded and ide
     await tx`ALTER TABLE expenses ENABLE TRIGGER books_connect_expenses`;
   });
   await apply("30_books_finance_connections.sql");
+  await apply("32_books_statements.sql");
   const overview = await createFinanceConnections(sql).overview();
   assert.equal(
     overview.summary.find((x) => x.source_type === "expense").unlinked,

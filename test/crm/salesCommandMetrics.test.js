@@ -78,6 +78,7 @@ test('sales command metrics, isolation, and pilot lifecycle', async (t) => {
       (${IDS.founderA}, ${IDS.userA}, true, 'a@example.com', 'Founder A', 'FOUNDER'),
       (${IDS.founderB}, ${IDS.userB}, true, 'b@example.com', 'Founder B', 'FOUNDER')
   `;
+  await require('../helpers/authSchema').createAuthSchema(school);
   await school.end();
 
   crmSql = postgres(crmUrl, { ssl: false, max: 4, onnotice: () => {} });
@@ -106,7 +107,7 @@ test('sales command metrics, isolation, and pilot lifecycle', async (t) => {
   `;
 
   request = require('supertest');
-  ({ createApp } = require('../../src/app'));
+  const { createApp } = require('../../src/app');
   app = createApp();
   appCrm = require('../../src/config/crmDb');
   appSchool = require('../../src/config/db');

@@ -157,6 +157,7 @@ test('trackable links attribute opens without merging a different school', async
       (${IDS.founderB}, ${IDS.userB}, true, 'b@example.com', 'Founder B', 'FOUNDER'),
       (${IDS.founderApprover}, ${IDS.userApprover}, true, 'ap@example.com', 'Approver', 'APPROVER')
   `;
+  await require('../helpers/authSchema').createAuthSchema(school);
   await school.end();
 
   const request = require('supertest');

@@ -1,7 +1,7 @@
 {
   "name": "superadmin-backend",
   "version": "1.0.0",
-  "description": "Dedicated backend for the SuperAdmin Expo app — consolidates all super-admin and medical provisioning routes.",
+  "description": "Dedicated backend for the SuperAdmin Expo app \u2014 consolidates all super-admin and medical provisioning routes.",
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon src/server.js",
@@ -18,7 +18,8 @@
     "migrate:crm": "node src/db/applyCrmMigrations.js",
     "crm:import-worker": "node -e \"require('./src/services/crm/importWorker').startImportWorker(); setInterval(() => {}, 1000)\"",
     "migrate:books": "node scripts/migrate-books.js",
-    "test:books": "node --test --test-concurrency=1 test/books/*.test.js"
+    "test:books": "node --test --test-concurrency=1 test/books/*.test.js",
+    "lint": "eslint src test tests scripts --ext .js,.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
@@ -38,6 +39,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
     "@electric-sql/pglite-socket": "0.2.11",
+    "eslint": "^8.57.1",
     "nodemon": "^3.1.11",
     "supertest": "7.3.0",
     "typescript": "5.9.3"

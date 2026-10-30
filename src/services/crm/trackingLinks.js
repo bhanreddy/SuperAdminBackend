@@ -35,6 +35,7 @@ function requireKey(body) {
 function clip(value, max) {
   const text = String(value || '').trim();
   if (!text) return null;
+                           // eslint-disable-next-line no-control-regex -- Reject control characters in untrusted input.
   if (text.length > max || /[\u0000-\u001f]/.test(text)) throw new CrmError(400, 'A text field is invalid', 'BAD_TEXT');
   return text;
 }

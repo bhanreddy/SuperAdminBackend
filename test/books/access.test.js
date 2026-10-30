@@ -31,7 +31,7 @@ test.before(async () => {
  await sql.unsafe(schema.slice(schema.indexOf('CREATE TABLE IF NOT EXISTS internal_users'), schema.indexOf('-- 5. School Requirements')));
  await sql`ALTER TABLE internal_users ADD COLUMN job_title text`;
  await sql`CREATE TABLE audit_logs (user_id uuid,action text,entity text,entity_id text,details jsonb,ip_address text,user_agent text,school_id int,created_at timestamptz)`;
- for (const migration of ['26_books.sql', '27_books_workflows.sql', '28_books_ca_access.sql','29_books_companies.sql']) { const connection = await sql.reserve(); try { await connection.unsafe(fs.readFileSync(path.join(__dirname, '../../src/db/migrations', migration), 'utf8')); } finally { connection.release(); } }
+ for (const migration of ['26_books.sql', '27_books_workflows.sql', '28_books_ca_access.sql','29_books_companies.sql','32_books_statements.sql']) { const connection = await sql.reserve(); try { await connection.unsafe(fs.readFileSync(path.join(__dirname, '../../src/db/migrations', migration), 'utf8')); } finally { connection.release(); } }
  process.env.SUPERADMIN_JWT_SECRET = secret;
  mock('../../src/config/db', sql);
  mock('../../src/config/env', { schoolSupabase: { jwtSecret: secret } });
@@ -115,6 +115,22 @@ test('owner-only account operations validate grants, store salted hashes and aud
  const [row] = await sql`SELECT password_hash FROM internal_users WHERE id=${ca.id}`; assert.notEqual(row.password_hash,ownPassword); assert.equal(verifyPassword(ownPassword,row.password_hash),true);
  const audit=JSON.stringify(await sql`SELECT * FROM books_access_events`); assert.equal(audit.includes(password),false); assert.equal(audit.includes(ownPassword),false);
 });
+test('ledger details, reporting classifications and report validation enforce separate grants', async () => {
+ await grants(['books.reports.view']);
+ assert.equal((await request('/books/accounts/1010/ledger')).status,403);
+ assert.equal((await request('/books/reports?from=2026-02-30')).status,400);
+ await grants(['books.accounts.view']);
+ const ledger=await request('/books/accounts/1010/ledger?from=2026-01-01&to=2026-12-31&page_size=1');
+ assert.equal(ledger.status,200);assert.ok(Array.isArray(ledger.data.data));assert.equal(ledger.data.page_size,1);
+ assert.equal((await request('/books/accounts/1010/ledger?page_size=10000')).status,400);
+ assert.equal((await request('/books/accounts/missing/ledger')).status,404);
+ assert.equal((await request('/books/accounts/1010/reporting',{method:'PUT',body:{cash_flow_activity:'investing'}})).status,403);
+ await grants(['books.accounts.view','books.accounts.manage']);
+ assert.equal((await request('/books/accounts/1100/reporting',{method:'PUT',body:{cash_flow_activity:'operating'}})).status,200);
+ assert.equal((await request('/books/accounts/1100/reporting',{method:'PUT',body:{cash_flow_activity:'bad'}})).status,400);
+ assert.equal((await request('/books/reports')).status,403);
+});
+
 test('suspension, reactivation and reset revoke sessions; CA credentials never fall back to Supabase', async () => {
  await access.update(ca.id,{full_name:'CA Test',status:'SUSPENDED',permissions:[]},root.id); assert.equal((await request('/auth/me')).status,401); assert.equal((await login(ca.email,ownPassword)).status,403);
  await access.update(ca.id,{full_name:'CA Test',status:'ACTIVE',permissions:[]},root.id); assert.equal((await request('/auth/me')).status,401);

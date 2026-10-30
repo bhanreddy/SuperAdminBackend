@@ -131,10 +131,11 @@ test.before(async () => {
     INSERT INTO rbac_pilot_config (school_id, mode, enforce_school_1)
     VALUES (1, 'ENFORCED', true)
   `;
+  await require('../helpers/authSchema').createAuthSchema(school);
   await school.end();
 
   request = require('supertest');
-  ({ createApp } = require('../../src/app'));
+  const { createApp } = require('../../src/app');
   app = createApp();
   schoolSql = require('../../src/config/db');
   tokens = {

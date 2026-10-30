@@ -110,10 +110,11 @@ test.before(async () => {
       ('cluster_other', 'active', 10, 0),
       ('cluster_full', 'active', 1, 1)
   `;
+  await require('../helpers/authSchema').createAuthSchema(school);
   await school.end();
 
   request = require('supertest');
-  ({ createApp } = require('../../src/app'));
+  const { createApp } = require('../../src/app');
   app = createApp();
   const { reserveClusterCapacity, consumeClusterCapacity } = require('../../src/services/crm/capacity');
   const crmSql = require('../../src/config/crmDb');

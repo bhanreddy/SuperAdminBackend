@@ -1,3 +1,4 @@
+const statements = require('./statements');
 const D = require('./domain');
 const {canBooks,BOOKS_MODULES,DOCUMENT_MODULES}=require('../../config/booksPermissions');
 const {
@@ -33,14 +34,15 @@ function createBooksService(db) {
     await tx`INSERT INTO books_activity(entity,entity_id,action,actor,details) VALUES(${entity},${id},${action},${actor || null},${tx.json(details)})`;
   }
   async function journal(tx, input, lines) {
+    ensure(!input.cash_flow_activity || ['operating','investing','financing'].includes(input.cash_flow_activity), 'Invalid cash flow activity');
     balanced(lines);
     for (const code of [...new Set(lines.map((l) => l.account_code))]) {
       const [a] = await tx`SELECT code FROM books_accounts WHERE code=${code}`;
       ensure(a, `Unknown account ${code}`);
     }
     const [j] =
-      await tx`INSERT INTO books_journals(date,reference,notes,source,source_id,reversal_of,created_by)
-      VALUES(${input.date},${input.reference},${input.notes || ''},${input.source},${input.source_id},${input.reversal_of || null},${input.actor || null}) RETURNING *`;
+      await tx`INSERT INTO books_journals(date,reference,notes,source,source_id,reversal_of,created_by,cash_flow_activity)
+      VALUES(${input.date},${input.reference},${input.notes || ''},${input.source},${input.source_id},${input.reversal_of || null},${input.actor || null},${input.cash_flow_activity || null}) RETURNING *`;
     for (const l of lines)
       await tx`INSERT INTO books_journal_lines(journal_id,account_code,debit,credit) VALUES(${j.id},${l.account_code},${l.debit || 0},${l.credit || 0})`;
     return j;
@@ -439,40 +441,10 @@ function createBooksService(db) {
     });
   }
   async function reports(filter = {}) {
-    const from = date(filter.from || '2000-01-01'),
-      to = date(filter.to || today());
-    ensure(to >= from, 'End date must follow start date');
-    return db.begin(async (tx) => {
-      const trial =
-        await tx`SELECT a.*,COALESCE(sum(l.debit) FILTER(WHERE j.date<=${to}),0) AS debit,
-        COALESCE(sum(l.credit) FILTER(WHERE j.date<=${to}),0) AS credit,
-        COALESCE(sum(l.debit) FILTER(WHERE j.date BETWEEN ${from} AND ${to}),0) AS period_debit,
-        COALESCE(sum(l.credit) FILTER(WHERE j.date BETWEEN ${from} AND ${to}),0) AS period_credit
-        FROM books_accounts a LEFT JOIN books_journal_lines l ON l.account_code=a.code
-        LEFT JOIN books_journals j ON j.id=l.journal_id GROUP BY a.code ORDER BY a.code`;
-      let income = 0,
-        expenses = 0,
-        assets = 0,
-        liabilities = 0,
-        equity = 0,
-        cash = 0,
-        retained = 0;
-      for (const a of trial) {
-        const balance = Number(a.debit) - Number(a.credit),
-          period = Number(a.period_debit) - Number(a.period_credit);
-        if (a.type === 'income') {
-          income -= period;
-          retained -= balance;
-        }
-        if (a.type === 'expense') {
-          expenses += period;
-          retained -= balance;
-        }
-        if (a.type === 'asset') assets += balance;
-        if (a.type === 'liability') liabilities -= balance;
-        if (a.type === 'equity') equity -= balance;
-        if (a.is_cash) cash += balance;
-      }
+    const { from, to } = statements.range(filter);
+    return db.begin('isolation level repeatable read', async (tx) => {
+      const [reportSettings] = await tx`SELECT organization_name,currency FROM books_settings WHERE id=1`;
+      const financials = await statements.statements(tx, from, to);
       // Aging is explicitly current, while trial balance and P&L obey the requested dates.
       const aging =
         await tx`SELECT d.id,d.number,d.kind,d.date,d.due_date,d.contact_snapshot->>'name' AS contact_name,
@@ -483,10 +455,6 @@ function createBooksService(db) {
         LEFT JOIN(SELECT document_id,sum(amount) paid FROM books_payments WHERE status='posted' GROUP BY document_id)p ON p.document_id=d.id
         LEFT JOIN(SELECT document_id,sum(amount) applied FROM books_credit_applications GROUP BY document_id)c ON c.document_id=d.id
         WHERE d.status='posted' AND d.kind IN ('invoice','bill') AND d.total>COALESCE(p.paid,0)+COALESCE(c.applied,0) ORDER BY d.due_date NULLS LAST,d.number`;
-      const cashflow =
-        await tx`SELECT to_char(j.date,'YYYY-MM') AS month,sum(l.debit) AS inflow,sum(l.credit) AS outflow
-        FROM books_journal_lines l JOIN books_journals j ON j.id=l.journal_id JOIN books_accounts a ON a.code=l.account_code
-        WHERE a.is_cash AND j.date BETWEEN ${from} AND ${to} GROUP BY to_char(j.date,'YYYY-MM') ORDER BY month`;
       const taxes =
         await tx`SELECT kind, sum(subtotal) AS taxable,sum(tax) AS tax,
         sum((tax_breakup->>'cgst')::bigint) AS cgst,sum((tax_breakup->>'sgst')::bigint) AS sgst,sum((tax_breakup->>'igst')::bigint) AS igst
@@ -529,17 +497,10 @@ function createBooksService(db) {
       return {
         from,
         to,
-        trial,
-        income,
-        expenses,
-        profit: income - expenses,
-        assets,
-        liabilities,
-        equity,
-        retained,
-        cash,
+        organization_name: reportSettings.organization_name,
+        currency: reportSettings.currency,
+        ...financials,
         aging,
-        cashflow,
         taxes,
         receivables: aging
           .filter((x) => x.kind === 'invoice')
@@ -873,10 +834,7 @@ function createBooksService(db) {
       });
     },
     reports,
-    async ledger(code, filter = {}) {
-      return db`SELECT l.*,j.date,j.reference,j.source,j.notes FROM books_journal_lines l JOIN books_journals j ON j.id=l.journal_id
-      WHERE l.account_code=${code} AND j.date BETWEEN ${date(filter.from || '2000-01-01')} AND ${date(filter.to || today())} ORDER BY j.date,l.id LIMIT 2000`;
-    },
+    ledger: (code, filter) => statements.ledger(db, code, filter),
     async getJournal(id) {
       const [j] = await db`SELECT * FROM books_journals WHERE id=${uuid(id)}`;
       ensure(j, 'Journal not found', 404);
@@ -900,6 +858,7 @@ function createBooksService(db) {
             {
               date: date(input.date),
               reference: required(input.reference, 'Reference'),
+              cash_flow_activity: input.cash_flow_activity,
               notes: text(input.notes, 4000),
               source: 'manual',
               source_id: id,
@@ -911,7 +870,23 @@ function createBooksService(db) {
         return j;
       });
     },
-    async accounts() {
+    async setAccountReporting(code, input, actor) {
+      const activity = input.cash_flow_activity || null;
+      ensure(!activity || ['operating','investing','financing'].includes(activity), 'Invalid cash flow activity');
+      return db.begin(async tx => {
+        const [before] = await tx`SELECT * FROM books_accounts WHERE code=${code} FOR UPDATE`;
+        ensure(before, 'Account not found', 404);
+        const [account] = await tx`UPDATE books_accounts SET cash_flow_activity=${activity} WHERE code=${code} RETURNING *`;
+        await tx`INSERT INTO books_activity(entity,entity_id,action,actor,details)
+          VALUES('account',${randomUUID()},'reporting_updated',${actor || null},${tx.json({ code, before: before.cash_flow_activity, after: activity })})`;
+        return account;
+      });
+    },
+    async accounts(filter = {}) {
+      if (filter.from || filter.to) {
+        const { from, to } = statements.range(filter);
+        return db.begin('isolation level repeatable read', tx => statements.accountBalances(tx, from, to));
+      }
       return db`SELECT a.*,COALESCE(sum(l.debit-l.credit),0) AS balance FROM books_accounts a LEFT JOIN books_journal_lines l ON l.account_code=a.code GROUP BY a.code ORDER BY a.code`;
     },
     async addAccount(input) {
@@ -927,8 +902,10 @@ function createBooksService(db) {
         !input.is_cash || input.type === 'asset',
         'Bank accounts must be assets',
       );
-      const [r] =
-        await db`INSERT INTO books_accounts(code,name,type,is_cash) VALUES(${code},${required(input.name, 'Name')},${input.type},${input.is_cash === true}) RETURNING *`;
+      const activity = input.cash_flow_activity === undefined ? (input.type === 'equity' ? 'financing' : null) : input.cash_flow_activity || null;
+      ensure(!activity || ['operating','investing','financing'].includes(activity), 'Invalid cash flow activity');
+      const [r] = await db`INSERT INTO books_accounts(code,name,type,is_cash,cash_flow_activity)
+        VALUES(${code},${required(input.name, 'Name')},${input.type},${input.is_cash === true},${activity}) RETURNING *`;
       return r;
     },
     async bankTransactions() {

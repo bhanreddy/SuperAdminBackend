@@ -45,6 +45,7 @@ function classify(url, config) {
 function validateDestination(raw) {
   const text = String(raw || '').trim();
   if (!text || text.length > 2000) reject('Destination URL is required');
+      // eslint-disable-next-line no-control-regex -- Reject control characters in untrusted input.
   if (/[\u0000-\u001f\u007f]/.test(text)) reject('Destination URL contains control characters');
   if (/^(javascript|data|file|intent|sms|tel):/i.test(text)) reject('Destination scheme is not allowed');
   let url;

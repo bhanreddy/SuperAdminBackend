@@ -68,10 +68,11 @@ test('school import creates prospects without tenants', async (t) => {
   await school`INSERT INTO super_admins (id, is_active, email, full_name) VALUES (${IDS.superUser}, true, 'super@example.com', 'Super Admin')`;
   await school`INSERT INTO founders (id, user_id, is_active, email, full_name, role) VALUES (${IDS.founderApprover}, ${IDS.userApprover}, true, 'ap@example.com', 'Approver', 'APPROVER')`;
   await school`INSERT INTO clusters (cluster_id, status) VALUES ('cluster_test', 'active')`;
+  await require('../helpers/authSchema').createAuthSchema(school);
   await school.end();
 
   request = require('supertest');
-  ({ createApp } = require('../../src/app'));
+  const { createApp } = require('../../src/app');
   app = createApp();
   crmSql = require('../../src/config/crmDb');
   schoolSql = require('../../src/config/db');

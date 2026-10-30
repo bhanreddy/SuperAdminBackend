@@ -3,6 +3,7 @@ const sql = require('../config/db');
 const config = require('../config/env');
 const { schoolSupabaseAdmin } = require('../config/supabase');
 const { ROLES, getEffectivePermissions } = require('../config/rbac');
+const { resolveRequestActor } = require('../services/directoryAuth');
 
 function getJwtSecret() {
   return (
@@ -32,6 +33,9 @@ async function decodeToken(token) {
   } catch {
     try {
       const payload = jwt.verify(token, secret, { algorithms: ['HS256'] });
+      if (payload.iss === JWT_ISSUER || payload.aud === JWT_AUDIENCE || payload.sid) {
+        throw new Error('Internal tokens require the expected issuer and audience');
+      }
       return { ...payload, tokenSource: 'supabase' };
     } catch {
       // fall through to remote Supabase verification
@@ -41,7 +45,6 @@ async function decodeToken(token) {
       return {
         sub: data.user.id,
         email: data.user.email,
-        ...(data.user.user_metadata || {}),
         tokenSource: 'supabase',
       };
     }
@@ -85,7 +88,7 @@ async function authenticateUser(req, res, next) {
 
     const userId = UUID_RE.test(String(payload.sub || '')) ? payload.sub : ZERO_UUID;
     const userEmail = String(payload.email || '').trim().toLowerCase();
-    if (userId === ZERO_UUID && !userEmail) {
+    if (userId === ZERO_UUID) {
       return res.status(401).json({ error: 'Token is missing a valid user identity' });
     }
 
@@ -98,11 +101,12 @@ async function authenticateUser(req, res, next) {
         FROM internal_users
         WHERE id = ${userId}
            OR auth_user_id = ${userId}
-           OR (email IS NOT NULL AND LOWER(TRIM(email)) = ${userEmail || '__missing__'})
         LIMIT 1
       `;
-    } catch {
-      userRow = null;
+    } catch (err) {
+      // Only an unmigrated directory may use the legacy path. A failed query
+      // must never bypass account status, session revocation or role checks.
+      if (err.code !== '42P01') throw err;
     }
 
     if (userRow) {
@@ -183,20 +187,8 @@ async function authenticateUser(req, res, next) {
       return res.status(403).json({ error: 'Account not found' });
     }
 
-    const [superAdminRow] = await sql`
-      SELECT id, is_active, email, full_name
-      FROM super_admins
-      WHERE id = ${userId}
-         OR (email IS NOT NULL AND LOWER(TRIM(email)) = ${userEmail || '__missing__'})
-      LIMIT 1
-    `;
-    const [founderRow] = await sql`
-      SELECT id, user_id, is_active, email, full_name, role
-      FROM founders
-      WHERE user_id = ${userId}
-         OR (email IS NOT NULL AND LOWER(TRIM(email)) = ${userEmail || '__missing__'})
-      LIMIT 1
-    `;
+    const { superAdmin: superAdminRow, founder: founderRow } =
+      await resolveRequestActor(sql, userId, userEmail);
     const activeRow = superAdminRow?.is_active ? superAdminRow : founderRow?.is_active ? founderRow : null;
     if (!activeRow) return res.status(403).json({ error: 'Account is inactive or not authorized' });
 
@@ -218,6 +210,7 @@ async function authenticateUser(req, res, next) {
       isFounder: true,
       sessionId: null,
       tokenSource: 'supabase',
+      legacyDirectory: true,
     };
     const isPlatformAdmin = Boolean(superAdminRow?.is_active);
     req.superAdmin = {

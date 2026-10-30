@@ -69,7 +69,8 @@ function createBooksRouter({db,authorize}={}){
  router.post('/payments/:id/void',route(async req=>{await paymentAccess(req,req.params.id,'void');return service.voidPayment(req.params.id,actor(req));}));
  router.post('/credits',route(async req=>{await documentAccess(req,req.body.document_id,'manage');await documentAccess(req,req.body.credit_id);return service.applyCredit(req.body,actor(req));}));
  router.delete('/credits/:id',route(async req=>{const [row]=await sql`SELECT document_id,credit_id FROM books_credit_applications WHERE id=${uuid(req.params.id)}`;ensure(row,'Credit allocation not found',404);await documentAccess(req,row.document_id,'manage');await documentAccess(req,row.credit_id);return service.removeCredit(req.params.id,actor(req));}));
- get('/accounts','accounts',()=>service.accounts());post('/accounts','accounts','manage',req=>service.addAccount(req.body));get('/accounts/:code/ledger','accounts',req=>service.ledger(req.params.code,req.query));
+ get('/accounts','accounts',req=>service.accounts(req.query));post('/accounts','accounts','manage',req=>service.addAccount(req.body));get('/accounts/:code/ledger','accounts',req=>service.ledger(req.params.code,req.query));
+ router.put('/accounts/:code/reporting',route(req=>{requireAccess(req,'accounts','manage');return service.setAccountReporting(req.params.code,req.body,actor(req));}));
  get('/journals/:id','journals',req=>service.getJournal(req.params.id));get('/journals','journals',()=>service.journals());post('/journals','journals','post',req=>{requireAccess(req,'accounts');return service.manualJournal(req.body,actor(req));});
  get('/reports','reports',req=>service.reports(req.query));
  get('/bank-transactions','banking',()=>service.bankTransactions());post('/bank-transactions/import','banking','manage',req=>service.importBank(req.body,actor(req)));

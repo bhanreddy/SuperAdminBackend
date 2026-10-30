@@ -38,6 +38,7 @@ function assertSafeRelative(relativePath) {
 
 function formatEnvValue(value) {
   const text = String(value ?? '');
+      // eslint-disable-next-line no-control-regex -- Reject control characters in untrusted input.
   if (/[\u0000\r\n]/.test(text)) {
     const error = new Error('Environment values cannot contain line breaks');
     error.status = 400;
