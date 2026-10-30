@@ -1,0 +1,37 @@
+Connect migration applied: 31_nexsyrus_connect.sql
+Connect migration applied: 32_connect_extensions.sql
+✔ M1 actual employee JWT authentication rejects missing, forged, revoked, suspended and CA identities (842.851459ms)
+✔ M1 channels require company admins; private metadata and history are hidden from nonmembers (9.569625ms)
+✔ M1 public join is idempotent; channel names, company identity and manager permissions are constrained (14.037167ms)
+✔ M1 send retry and concurrent sends produce unique ordered durable messages, including identical text (38.804625ms)
+✔ M1 edits/deletes enforce author, audited tombstones and immutable identities at SQL level (17.680459ms)
+✔ M1 database RLS rejects direct cross-user reads/writes even if API checks are omitted (9.750917ms)
+✔ M1 archived and announcement-only channels enforce posting at API and RLS layers (38.853375ms)
+✔ M2 threads preserve parent, count replies and reject cross-channel or nested parents (15.856625ms)
+✔ M2 reactions are unique, removable and cannot be injected into private or deleted messages (46.314292ms)
+✔ M2 mentions validate recipients and deduplicate notification fanout across retries, edits, DM/thread overlap (170.826833ms)
+✔ M3 DMs are canonical under concurrent creation and founders cannot read nonparticipant content (97.323042ms)
+✔ M3 search and mention filters obey membership, participant and company boundaries (163.286792ms)
+✔ M3 read positions are monotonic, clamp future values and exclude own/deleted messages from unreads (127.888792ms)
+✔ M3 removal revokes history/search/notifications/mention choices immediately (58.950041ms)
+✔ M3 realtime role sees identifier-only authorized events and rejects invalidated sessions (29.778541ms)
+✔ HTTP endpoints validate identifiers, authorship and rate limits without disclosing SQL errors (54.035459ms)
+✔ M4 private attachment upload/download validates content, retries by hash and rechecks current membership (124.650291ms)
+✔ M4 malicious/spoofed files, active PDF, macros and malformed Office ZIP are rejected (0.340166ms)
+✔ M4 saved/pinned messages preserve authorization, personal scope and manager-only pins (42.988166ms)
+✔ M4 presence expires to away and SQL prevents setting another employee status (6.370291ms)
+✔ M4 task conversion reuses checklist, validates role/school/assignee and never copies private body automatically (21.783625ms)
+✔ company scope is enforced even when the same employee belongs to another company (11.332458ms)
+✔ explicit migration runner journals both migrations atomically and safely skips a repeat run (1.019791ms)
+✔ Office validation accepts bounded DOCX container structure and rejects macros and expansion bombs (100.840042ms)
+✔ deleted thread parents remain tombstones while existing replies can still be edited or deleted (18.943959ms)
+✔ image uploads use the actual sharp decoder, re-encode private bytes and reject oversized dimensions (73.87ms)
+✔ actual PostgreSQL recovery history walks 215 missed messages in ascending keyset pages (48.984542ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2364.244

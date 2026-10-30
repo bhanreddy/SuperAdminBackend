@@ -1,5 +1,7 @@
 # NexSyrus Connect change log
 
+Subsequent authorized release on 30 October 2026: Connect source pushed to both GitHub main branches; backend deployed to the existing active Catalyst AppSail environment; two additive migrations applied; frontend deployed through Cloudflare Builds. See DEPLOYMENT_REPORT.md for verification and remaining realtime/FCM configuration gaps. Unrelated local changes were preserved.
+
 30 October 2026 — local implementation, not deployed.
 
 ## Added

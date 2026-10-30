@@ -1,5 +1,7 @@
 # Implementation and rollout status
 
+Deployment update: the user subsequently authorized push/deployment. See [DEPLOYMENT_REPORT.md](DEPLOYMENT_REPORT.md) for the live targets, source revisions, applied migrations and remaining configuration gaps. The milestones below retain their implementation-phase context.
+
 Read CODEBASE_AUDIT.md, REA_RESEARCH_REPORT.md, ARCHITECTURE_PROPOSAL.md, DATABASE_DESIGN.md, SECURITY_REVIEW.md and TEST_REPORT.md together. Source changes are local and uncommitted. No production deployment or database migration has run.
 
 ## Milestone 1 — implemented locally
