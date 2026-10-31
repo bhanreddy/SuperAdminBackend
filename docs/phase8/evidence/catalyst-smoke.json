@@ -1,0 +1,68 @@
+[
+  {
+    "origin": "https://superadmin-backend-50046840729.development.catalystappsail.in",
+    "path": "/health",
+    "status": 200,
+    "body": "{\"status\":\"ok\",\"service\":\"superadmin-backend\",\"timestamp\":\"2026-10-31T03:45:30.164Z\",\"uptime\":0.647196491}"
+  },
+  {
+    "origin": "https://superadmin-backend-50046840729.development.catalystappsail.in",
+    "path": "/api/super-admin/auth/me",
+    "status": 401,
+    "body": "{\"error\":\"A valid Bearer token is required\"}"
+  },
+  {
+    "origin": "https://superadmin-backend-50046840729.development.catalystappsail.in",
+    "path": "/api/super-admin/connect/bootstrap",
+    "status": 401,
+    "body": "{\"error\":\"A valid Bearer token is required\"}"
+  },
+  {
+    "origin": "https://superadmin-backend-50046840729.development.catalystappsail.in",
+    "path": "/api/super-admin/books/reports",
+    "status": 401,
+    "body": "{\"error\":\"A valid Bearer token is required\"}"
+  },
+  {
+    "origin": "https://superadmin-backend-50046840729.development.catalystappsail.in",
+    "path": "/api/super-admin/auth/login",
+    "method": "OPTIONS",
+    "status": 200,
+    "allowOrigin": "https://founderconsole.nexsyrus.com",
+    "allowMethods": "OPTIONS, POST",
+    "allowHeaders": "content-type,authorization"
+  },
+  {
+    "origin": "https://superadminapi.nexsyrus.com",
+    "path": "/health",
+    "status": 200,
+    "body": "{\"status\":\"ok\",\"service\":\"superadmin-backend\",\"timestamp\":\"2026-10-31T03:45:31.916Z\",\"uptime\":2.399430096}"
+  },
+  {
+    "origin": "https://superadminapi.nexsyrus.com",
+    "path": "/api/super-admin/auth/me",
+    "status": 401,
+    "body": "{\"error\":\"A valid Bearer token is required\"}"
+  },
+  {
+    "origin": "https://superadminapi.nexsyrus.com",
+    "path": "/api/super-admin/connect/bootstrap",
+    "status": 401,
+    "body": "{\"error\":\"A valid Bearer token is required\"}"
+  },
+  {
+    "origin": "https://superadminapi.nexsyrus.com",
+    "path": "/api/super-admin/books/reports",
+    "status": 401,
+    "body": "{\"error\":\"A valid Bearer token is required\"}"
+  },
+  {
+    "origin": "https://superadminapi.nexsyrus.com",
+    "path": "/api/super-admin/auth/login",
+    "method": "OPTIONS",
+    "status": 200,
+    "allowOrigin": "https://founderconsole.nexsyrus.com",
+    "allowMethods": "OPTIONS, POST",
+    "allowHeaders": "content-type,authorization"
+  }
+]
