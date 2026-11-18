@@ -87,12 +87,12 @@ async function statements(tx, from, to) {
       classification_complete: activities.find(a => a.activity === 'unclassified').journal_count === 0 },
   };
 }
-async function ledger(db, code, filter = {}) {
+async function ledger(db, code, filter = {}, { maxPageSize = 500 } = {}) {
   const { from, to } = range(filter);
   const page = filter.page === undefined ? 1 : Number(filter.page);
   const pageSize = filter.page_size === undefined ? 100 : Number(filter.page_size);
   ensure(Number.isSafeInteger(page) && page > 0 && page <= 1000000, 'Invalid ledger page');
-  ensure(Number.isSafeInteger(pageSize) && pageSize > 0 && pageSize <= 500, 'Ledger page size must be 1–500');
+  ensure(Number.isSafeInteger(pageSize) && pageSize > 0 && pageSize <= maxPageSize, `Ledger page size must be 1–${maxPageSize}`);
   return db.begin('isolation level repeatable read', async tx => {
     const [account] = await tx`SELECT * FROM books_accounts WHERE code=${code}`;
     ensure(account, 'Account not found', 404);

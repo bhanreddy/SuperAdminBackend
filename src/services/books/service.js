@@ -1,4 +1,5 @@
 const statements = require('./statements');
+const banking = require('./banking');
 const D = require('./domain');
 const {canBooks,BOOKS_MODULES,DOCUMENT_MODULES}=require('../../config/booksPermissions');
 const {
@@ -325,7 +326,7 @@ function createBooksService(db) {
       })),
     };
   }
-  async function listDocuments(filter = {}) {
+  async function listDocuments(filter = {}, { limit = 50, summaryOnly = false } = {}) {
     if (filter.kind)
       ensure(KINDS.includes(filter.kind), 'Invalid document type');
     const page = Math.max(1, Math.min(100000, Number(filter.page) || 1));
@@ -340,8 +341,11 @@ function createBooksService(db) {
         ),
       'Invalid status',
     );
+    const fields = summaryOnly
+      ? db`d.id,d.number,d.kind,d.date,d.due_date,d.status,d.contact_snapshot->>'name' AS contact_name,d.reference,d.subject,d.salesperson,d.subtotal,d.discount_total,d.tax,d.adjustment,d.total,d.notes,d.terms`
+      : db`d.*`;
     const rows =
-      await db`SELECT d.*, COALESCE(p.paid,0)+COALESCE(c.applied,0) AS settled,
+      await db`SELECT ${fields}, COALESCE(p.paid,0)+COALESCE(c.applied,0) AS settled,
       GREATEST(d.total-COALESCE(p.paid,0)-COALESCE(c.applied,0),0) AS balance,
       count(*) OVER() AS row_count FROM books_documents d
       LEFT JOIN (SELECT document_id,sum(amount) paid FROM books_payments WHERE status='posted' GROUP BY document_id) p ON p.document_id=d.id
@@ -350,12 +354,12 @@ function createBooksService(db) {
       AND (${status}='' OR d.status=${status} OR (${status}='overdue' AND d.status='posted' AND d.due_date<${today()} AND d.total>COALESCE(p.paid,0)+COALESCE(c.applied,0))
       OR (${status}='unpaid' AND d.status='posted' AND d.total>COALESCE(p.paid,0)+COALESCE(c.applied,0))
       OR (${status}='paid' AND d.status='posted' AND d.total=COALESCE(p.paid,0)+COALESCE(c.applied,0)))
-      ORDER BY d.date DESC,d.created_at DESC LIMIT 50 OFFSET ${(page - 1) * 50}`;
+      ORDER BY d.date DESC,d.created_at DESC,d.id DESC LIMIT ${limit} OFFSET ${(page - 1) * limit}`;
     return {
       data: rows.map(documentRow),
       total: Number(rows[0]?.row_count || 0),
       page,
-      page_size: 50,
+      page_size: limit,
     };
   }
   async function recordPayment(input, actor) {
@@ -908,9 +912,7 @@ function createBooksService(db) {
         VALUES(${code},${required(input.name, 'Name')},${input.type},${input.is_cash === true},${activity}) RETURNING *`;
       return r;
     },
-    async bankTransactions() {
-      return db`SELECT b.*,a.name AS account_name FROM books_bank_transactions b JOIN books_accounts a ON a.code=b.account_code ORDER BY date DESC,created_at DESC LIMIT 1000`;
-    },
+    bankTransactions: (query = {}) => banking.listStatements(db, query),
     async importBank(input, actor) {
       ensure(
         Array.isArray(input.rows) &&
@@ -943,29 +945,7 @@ function createBooksService(db) {
         return { imported: count, duplicates: input.rows.length - count };
       });
     },
-    async matchBank(id, paymentId) {
-      return db.begin(async (tx) => {
-        const [b] =
-          await tx`SELECT * FROM books_bank_transactions WHERE id=${uuid(id)} FOR UPDATE`;
-        ensure(b, 'Statement row not found', 404);
-        if (!paymentId) {
-          await tx`UPDATE books_bank_transactions SET matched_payment_id=NULL WHERE id=${id}`;
-          return { ok: true };
-        }
-        const [p] =
-          await tx`SELECT p.*,d.kind FROM books_payments p JOIN books_documents d ON d.id=p.document_id WHERE p.id=${uuid(paymentId)} FOR UPDATE OF p`;
-        ensure(
-          p?.status === 'posted' &&
-            p.account_code === b.account_code &&
-            Number(b.amount) ===
-              (p.kind === 'invoice' ? 1 : -1) * Number(p.amount),
-          'Payment direction, account and amount must match the statement',
-        );
-        const [r] =
-          await tx`UPDATE books_bank_transactions SET matched_payment_id=${paymentId} WHERE id=${id} RETURNING *`;
-        return r;
-      });
-    },
+    matchBank: (id, paymentId, actor) => banking.changeMatch(db, id, { payment_id: paymentId }, { payments: true }, actor),
     async projects() {
       return db`SELECT p.*,c.name AS contact_name,(SELECT COALESCE(sum(minutes),0) FROM books_time_entries t WHERE t.project_id=p.id) AS minutes FROM books_projects p LEFT JOIN books_contacts c ON c.id=p.contact_id ORDER BY p.created_at DESC`;
     },

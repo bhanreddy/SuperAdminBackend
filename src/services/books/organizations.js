@@ -36,7 +36,7 @@ function createOrganizationContext(db) {
     ensure(row && /^(public|books_[a-z0-9_]+)$/.test(row.schema_name), 'Company books are unavailable', 503);
     req.booksCompany = company;
     req.user = { ...req.user, permissions: company.permissions };
-    const reportRead = req.method === 'GET' && (/^\/(reports|dashboard|accounts)$/.test(req.path) || /^\/accounts\/[^/]+\/ledger$/.test(req.path));
+    const reportRead = req.method === 'GET' && (/^\/(reports|dashboard|accounts|export|bank-transactions)$/.test(req.path) || /^\/accounts\/[^/]+\/ledger$/.test(req.path));
     return db.begin(reportRead ? 'isolation level repeatable read' : '', async tx => {
       await tx`SELECT set_config('search_path',${`"${row.schema_name}", pg_catalog`},true)`;
       return context.run(transactionAdapter(tx), fn);

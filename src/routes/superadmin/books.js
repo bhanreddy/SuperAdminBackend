@@ -4,6 +4,8 @@ const {createFinanceConnections}=require('../../services/books/financeConnection
 const {createBooksService}=require('../../services/books/service');
 const {createBooksAccessService}=require('../../services/books/access');
 const {printDocument}=require('../../services/books/print');
+const {exportBooks,validateExport}=require('../../services/books/export');
+const banking=require('../../services/books/banking');
 const {ensure,uuid}=require('../../services/books/domain');
 const {canBooks,BOOKS_MODULES,BOOKS_PERMISSION_SET,DOCUMENT_MODULES}=require('../../config/booksPermissions');
 function createBooksRouter({db,authorize}={}){
@@ -43,6 +45,15 @@ function createBooksRouter({db,authorize}={}){
  post('/connections/import','connections','sync',req=>createFinanceConnections(sql).importExisting(actor(req)));
  router.get('/bootstrap',route(req=>service.bootstrap(req.user)));
  router.get('/lookups',route(req=>service.lookups(req.user)));
+ router.get('/export',route(async(req,res)=>{
+  ensure(allowed(req,'data','export'),'Export access has not been granted',403);
+  const query=validateExport(req.query);requireAccess(req,query.module==='ledger'?'accounts':query.module);
+  const result=await exportBooks(sql,service,query,req.user);
+  res.set('X-Content-Type-Options','nosniff');
+  res.set('X-Export-Row-Count',String(result.count));
+  res.attachment(`books-${req.booksCompany.code}-${query.module}.csv`);
+  res.type('text/csv; charset=utf-8').send(result.csv);
+ }));
  router.get('/dashboard',route(async req=>{requireAccess(req,'home');const r=await service.reports(req.query);const keys=['from','to','income','expenses','profit','cash','receivables','payables','aging_as_of','cashflow'];return Object.fromEntries(keys.map(k=>[k,r[k]]));}));
  router.put('/settings',route(req=>{requireAccess(req,'settings','manage');return service.saveSettings(req.body,actor(req));}));
  get('/settings','settings',()=>service.bootstrap().then(r=>r.settings));
@@ -73,8 +84,17 @@ function createBooksRouter({db,authorize}={}){
  router.put('/accounts/:code/reporting',route(req=>{requireAccess(req,'accounts','manage');return service.setAccountReporting(req.params.code,req.body,actor(req));}));
  get('/journals/:id','journals',req=>service.getJournal(req.params.id));get('/journals','journals',()=>service.journals());post('/journals','journals','post',req=>{requireAccess(req,'accounts');return service.manualJournal(req.body,actor(req));});
  get('/reports','reports',req=>service.reports(req.query));
- get('/bank-transactions','banking',()=>service.bankTransactions());post('/bank-transactions/import','banking','manage',req=>service.importBank(req.body,actor(req)));
- router.put('/bank-transactions/:id/match',route(req=>{requireAccess(req,'banking','manage');if(req.body.payment_id)requireAccess(req,'payments');return service.matchBank(req.params.id,req.body.payment_id);}));
+ const matchAccess=req=>({payments:allowed(req,'payments'),journals:allowed(req,'journals')});
+ get('/bank-transactions','banking',req=>service.bankTransactions(req.query));post('/bank-transactions/import','banking','manage',req=>service.importBank(req.body,actor(req)));
+ get('/bank-transactions/:id/candidates','banking',req=>{
+  const grants=matchAccess(req);
+  ensure(grants.payments||grants.journals,'Viewing payments or journals is required to find matches',403);
+  return banking.matchCandidates(sql,req.params.id,req.query,grants);
+ });
+ router.put('/bank-transactions/:id/match',route(req=>{
+  requireAccess(req,'banking','manage');
+  return banking.changeMatch(sql,req.params.id,req.body,matchAccess(req),actor(req));
+ }));
  get('/projects','projects',()=>service.projects());post('/projects','projects','manage',req=>{requireAccess(req,'customers');return service.createProject(req.body);});
  post('/projects/:id/invoice','projects','invoice',req=>{requireAccess(req,'invoice','manage');requireAccess(req,'time');return service.invoiceProject(req.params.id,actor(req));});
  get('/time-entries','time',()=>service.timeEntries());post('/time-entries','time','manage',req=>{requireAccess(req,'projects');return service.addTime(req.body);});

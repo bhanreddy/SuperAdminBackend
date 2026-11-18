@@ -6,6 +6,7 @@ const postgres = require("postgres");
 const { PGlite } = require("@electric-sql/pglite");
 const { PGLiteSocketServer } = require("@electric-sql/pglite-socket");
 const { createBooksService } = require("../../src/services/books/service");
+const { matchCandidates, changeMatch } = require("../../src/services/books/banking");
 const {
   createFinanceConnections,
 } = require("../../src/services/books/financeConnections");
@@ -66,6 +67,7 @@ test.before(async () => {
     CREATE TABLE payroll_runs(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),employee_id uuid DEFAULT gen_random_uuid(),payroll_year int,payroll_month int,gross_pay numeric,net_pay numeric,pf_deduction numeric,esi_deduction numeric,other_deductions numeric,status text,paid_at timestamptz);`);
   await apply("30_books_finance_connections.sql");
   await apply("32_books_statements.sql");
+  await apply("36_books_bank_matching.sql");
   books = createBooksService(sql);
 });
 test.after(async () => {
@@ -463,4 +465,31 @@ test("expense source APIs persist dates, reject invalid transitions and clear pa
       expense_date: "2026-02-31",
     });
   assert.equal(bad.status, 400);
+});
+
+test("connected payroll and client receipts clear against statement rows without a second posting", async () => {
+  await sql`INSERT INTO payroll_runs(payroll_year,payroll_month,gross_pay,net_pay,pf_deduction,esi_deduction,other_deductions,status,paid_at)
+    VALUES(2026,10,949.82,949.82,0,0,0,'PAID',now())`;
+  await invoice("receipt", 657.31, 657.31);
+  const rows = [
+    { date: "2026-10-31", description: "Payroll transfer", amount: "-949.82", external_key: "recon-payroll" },
+    { date: "2026-10-31", description: "Client bank receipt", amount: "657.31", external_key: "recon-client" },
+  ];
+  await books.importBank({ account_code: "1010", rows }, "test");
+  const statements = await books.bankTransactions({ search: "recon-" });
+  assert.equal(statements.length, 2);
+  const balanceBefore = await balance("1010");
+  const count = await journalCount();
+  const grants = { journals: true, payments: false };
+  for (const row of statements) {
+    const match = await matchCandidates(sql, row.id, {}, grants);
+    assert.equal(match.data.length, 1);
+    const prefix = row.external_key === "recon-payroll" ? "platform_payroll_" : "platform_billing_";
+    assert.ok(match.data[0].source.startsWith(prefix));
+    const linked = await changeMatch(sql, row.id, { journal_line_id: match.data[0].id }, grants, "test");
+    assert.equal(String(linked.matched_journal_line_id), match.data[0].id);
+    assert.equal(linked.matched_payment_id, null);
+  }
+  assert.equal(await journalCount(), count);
+  assert.equal(await balance("1010"), balanceBefore);
 });

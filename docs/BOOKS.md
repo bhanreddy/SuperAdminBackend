@@ -28,9 +28,10 @@ npm run migrate:books
 
 The additive migrations are `src/db/migrations/26_books.sql` and
 `src/db/migrations/27_books_workflows.sql`, plus
-`src/db/migrations/28_books_ca_access.sql`, `29_books_companies.sql`, and
-`30_books_finance_connections.sql`. The command applies all five, including
-upgrades to existing Books installations. They are repeatable and
+`src/db/migrations/28_books_ca_access.sql`, `29_books_companies.sql`,
+`30_books_finance_connections.sql`, `32_books_statements.sql`, and
+`36_books_bank_matching.sql`. The command upgrades existing Books
+installations. The migrations are repeatable and
 transactional. The installer reserves one database connection for the complete
 migration. It enables RLS without public client policies on the Books tables;
 browser clients access data through the authenticated backend only. Use the same
@@ -62,7 +63,8 @@ sample records were seeded there.
 6. Open a posted invoice/bill to record partial or full payments, or allocate a
    posted credit for the same contact. Recording a payment records a ledger fact;
    it does not initiate a bank transfer or gateway charge.
-7. Import statement CSV in Banking and match existing recorded payments.
+7. Import a statement CSV in Banking. Filter for unmatched rows and use **Find
+   match** to link each transaction to a posted cash or bank ledger entry.
 8. Review reports, print documents (browser Print / Save as PDF), and export lists
    to CSV. Attach supporting files to a document or the document library.
 
@@ -141,10 +143,18 @@ sample records were seeded there.
 - CSV imports require `date,description,amount,external_key`; `reference` is
   optional. Dates are `YYYY-MM-DD`, deposits positive, withdrawals negative.
   Up to 1,000 rows per import; exact repeated bank transaction IDs are skipped,
-  conflicting values are rejected. Imports do not affect the ledger. Matching
-  requires a posted payment with the same account, direction and amount. Only one
-  statement row can match a payment. Bank fees, transfers, partial matches, and
-  automatic categorization are not implemented.
+  conflicting values are rejected. Imports and matches leave ledger balances intact.
+  Matching requires a posted entry with the same account, direction and exact
+  amount. Candidates closest to the statement date come first. Each ledger line
+  can clear one statement row. For an existing bank fee journal, choose its bank
+  withdrawal line. For an existing transfer journal, match each account's
+  statement against its corresponding line.
+- Banking searches the full import history and supports account, statement-date,
+  and match-status filters. Results use 50-row pages. CSV exports apply the
+  same filters and include match status and linked entry IDs. Matching and
+  unmatching write to Books activity. Native payments require Payments viewing
+  and other posted entries require Journals viewing. Changing a match requires
+  Banking manage access.
 - Attachments are stored in the central database, up to 5 MiB each. Authenticated
   downloads force attachment disposition and disable content sniffing. Retention,
   malware scanning, OCR, storage quotas, and document deletion are not implemented.
@@ -383,9 +393,8 @@ No live migration, deployment or historical import was performed for this change
   retain their existing full accounting authority. Other company requests cannot
   read or import Nexsyrus sources.
 
-Connected payments currently post directly as journals. Bank statement matching
-continues to support native Books payment records; matching source-payment
-journals and changing paid facts from the UI are not implemented. Expense
+Connected payments post directly as journals. Banking can match their cash
+or bank lines to imported statement rows. Expense
 reimbursements are full payments, without partial allocations. Receipt images
 remain in the expense receipt store, opened through the expense workspace.
 

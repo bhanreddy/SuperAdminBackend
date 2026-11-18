@@ -71,7 +71,11 @@ test.before(async () => {
   const registryConnection=await sql.reserve();
   try { await registryConnection.unsafe(fs.readFileSync(path.join(__dirname,'../../src/db/migrations/29_books_companies.sql'),'utf8')); } finally {registryConnection.release();}
   const reportingConnection = await sql.reserve();
-  try { await reportingConnection.unsafe(fs.readFileSync(path.join(__dirname,'../../src/db/migrations/32_books_statements.sql'),'utf8')); } finally { reportingConnection.release(); }
+  try {
+    for (const file of ['32_books_statements.sql', '36_books_bank_matching.sql']) {
+      await reportingConnection.unsafe(fs.readFileSync(path.join(__dirname, '../../src/db/migrations', file), 'utf8'));
+    }
+  } finally { reportingConnection.release(); }
   books = createBooksService(sql);
   await books.saveSettings(
     { organization_name: 'NexSyrus', state_code: '36' },
@@ -284,7 +288,21 @@ test('bank imports deduplicate and reconcile only matching account, direction an
   assert.equal((await books.importBank(statement, 'test')).imported, 1);
   assert.equal((await books.importBank(statement, 'test')).duplicates, 1);
   const [b] = await books.bankTransactions();
-  await books.matchBank(b.id, p.id);
+  // Simulate a match saved before the ledger-line column was introduced.
+  await sql`UPDATE books_bank_transactions SET matched_payment_id=${p.id} WHERE id=${b.id}`;
+  for (let pass = 0; pass < 2; pass++) {
+    const connection = await sql.reserve();
+    try {
+      await connection.unsafe(fs.readFileSync(path.join(__dirname, '../../src/db/migrations/36_books_bank_matching.sql'), 'utf8'));
+    } finally { connection.release(); }
+  }
+  const [upgraded] = await books.bankTransactions();
+  assert.equal(upgraded.matched_payment_id, p.id);
+  assert.ok(upgraded.matched_journal_line_id);
+  await assert.rejects(books.voidPayment(p.id, 'test'), /Unmatch/);
+  await books.matchBank(b.id, null);
+  const matched = await books.matchBank(b.id, p.id);
+  assert.equal(matched.matched_journal_line_id, upgraded.matched_journal_line_id);
   await assert.rejects(books.voidPayment(p.id, 'test'), /Unmatch/);
   await books.matchBank(b.id, null);
   await books.voidPayment(p.id, 'test');
