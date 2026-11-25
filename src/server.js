@@ -17,6 +17,7 @@ const { startSchoolPackageWorker, stopSchoolPackageWorker } = require('./service
 
 assertTrackingStartup();
 
+const notificationWorker = require('./services/notifications').worker;
 const app = createApp();
 const PORT = config.port;
 
@@ -25,6 +26,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   Health check: http://localhost:${PORT}/  or  /health`);
   console.log(`   API prefix:   http://localhost:${PORT}/api/super-admin/`);
   console.log(`   Medical API:  http://localhost:${PORT}/api/v1/medical/\n`);
+  notificationWorker.start();
   startCrmAutomationWorker();
   startImportWorker();
   startPayrollAutomationWorker();
@@ -36,6 +38,7 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 process.on('SIGTERM', () => {
+  void notificationWorker.stop();
   stopImportWorker();
   stopSchoolPackageWorker();
 });

@@ -100,6 +100,7 @@ superAdmin.use('/messenger', messengerRouter);
 
 // Internal company collaboration has its own employee/membership/RLS boundary.
 superAdmin.use('/connect', require('./superadmin/connect'));
+superAdmin.use('/notifications', require('./superadmin/notifications'));
 
 // Content
 superAdmin.use('/content', contentRouter);
@@ -139,6 +140,7 @@ superAdmin.use('/support', supportRouter);
 
 // Curriculum Versioning & Release Management Control Plane
 superAdmin.use('/curriculum', curriculumRouter);
+superAdmin.use('/question-bank', require('./superadmin/questionBank'));
 
 // RBAC V2 & Pilot Boundary Control Plane
 superAdmin.use('/rbac', rbacRouter);

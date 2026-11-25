@@ -40,6 +40,16 @@ async function request(method, path, { authorization, body, idempotencyKey } = {
 }
 
 const CurriculumAuthoringClient = {
+  async questionBank(method,path,{authorization,body,idempotencyKey,requestId,multipart}={}) {
+    if(!/^\/(?:capabilities|destinations|assets(?:\/(?:uploads(?:\/[a-f0-9-]+\/confirm)?|[a-f0-9-]+\/usage))?|questions(?:\/[a-f0-9-]+(?:\/(?:reviewed|approved|changes_requested|assets\/[a-f0-9-]+\/\d+\/download))?)?|imports(?:\/(?:preview|[a-f0-9-]+(?:\/(?:commit|retry|cancel|report))?))?|paper-preview)(?:\?[^#]*)?$/i.test(path))throw Object.assign(new Error('Invalid question bank path'),{statusCode:422});
+    authorizationHeader({authorization});
+    const response=await fetch(`${apiBase()}/curriculum/authoring/question-bank${path}`,{method,
+      headers:{authorization,...(!multipart?{'content-type':'application/json'}:{}),...(idempotencyKey?{'Idempotency-Key':idempotencyKey}:{}),...(requestId?{'x-request-id':requestId}:{})},
+      signal:AbortSignal.timeout(25000),body:multipart|| (body===undefined?undefined:JSON.stringify(body))});
+    const json=await response.json().catch(()=>({}));
+    if(!response.ok)throw Object.assign(new Error(json.error||'Question bank request failed'),{statusCode:response.status,code:json.code,details:json.details,current:json.current});
+    return json;
+  },
   assignment(schoolId,operation,authorization,body,idempotencyKey){
     if(!Number.isSafeInteger(Number(schoolId))||Number(schoolId)<=0||!['assign','upgrade','withdraw','preview-upgrade'].includes(operation))throw Object.assign(new Error('Invalid deployment target'),{statusCode:422});
     return request('POST',`/schools/${Number(schoolId)}/assignments/${operation}`,{authorization,body,idempotencyKey});

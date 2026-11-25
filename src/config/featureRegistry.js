@@ -10,29 +10,32 @@
 const STUDENT_ROLE = 'student';
 
 const FEATURE_REGISTRY = [
+  { key: 'fluency_improver', label: 'MAXX Fluency', group: 'quick_actions', default_enabled: false, data_bearing: true, toggleable: true },
   // drawer
-  { key: 'menu.dcgd',             label: 'DCGD',            group: 'drawer',        default_enabled: true, data_bearing: true,  toggleable: true },
-  { key: 'menu.ai_doubt_assist',  label: 'AI Doubt Assist', group: 'drawer',       default_enabled: true, data_bearing: true,  toggleable: true },
-  { key: 'menu.insurance',        label: 'Insurance',       group: 'drawer',        default_enabled: true, data_bearing: false, toggleable: true },
-  { key: 'menu.money_science',    label: 'Money Science',   group: 'drawer',        default_enabled: true, data_bearing: false, toggleable: true },
-  { key: 'menu.girl_safety',      label: 'Girl Safety',     group: 'drawer',        default_enabled: true, data_bearing: false, toggleable: true },
+  { key: 'menu.dcgd',             label: 'DCGD',            group: 'drawer',        default_enabled: false, data_bearing: true,  toggleable: true },
+  { key: 'menu.ai_doubt_assist',  label: 'AI Doubt Assist', group: 'drawer',       default_enabled: false, data_bearing: true,  toggleable: true },
+  { key: 'menu.insurance',        label: 'Insurance',       group: 'drawer',        default_enabled: false, data_bearing: false, toggleable: true },
+  { key: 'menu.money_science',    label: 'Money Science',   group: 'drawer',        default_enabled: false, data_bearing: false, toggleable: true },
   // quick_actions
-  { key: 'quick.announcements',   label: 'Announcements',   group: 'quick_actions', default_enabled: true, data_bearing: true,  toggleable: true },
-  { key: 'quick.complaints',      label: 'Complaints',      group: 'quick_actions', default_enabled: true, data_bearing: true,  toggleable: true },
-  { key: 'quick.life_values',     label: 'Life Values',     group: 'quick_actions', default_enabled: true, data_bearing: false, toggleable: true },
-  { key: 'quick.transport',       label: 'Transport',       group: 'quick_actions', default_enabled: true, data_bearing: true,  toggleable: true },
-  { key: 'quick.science_projects',label: 'Science Projects',group: 'quick_actions', default_enabled: true, data_bearing: true,  toggleable: true },
-  { key: 'quick.profile',         label: 'Profile',         group: 'quick_actions', default_enabled: true, data_bearing: true,  toggleable: true },
-  // topbar
-  { key: 'topbar.diary',          label: 'Diary',           group: 'topbar',        default_enabled: true, data_bearing: true,  toggleable: true },
-  { key: 'topbar.lms',            label: 'LMS',             group: 'topbar',        default_enabled: true, data_bearing: true,  toggleable: true },
+  { key: 'quick.announcements',   label: 'Announcements',   group: 'quick_actions', default_enabled: false, data_bearing: true,  toggleable: true },
+  { key: 'quick.complaints',      label: 'Complaints',      group: 'quick_actions', default_enabled: false, data_bearing: true,  toggleable: true },
+  { key: 'quick.life_values',     label: 'Life Values',     group: 'quick_actions', default_enabled: false, data_bearing: false, toggleable: true },
+  { key: 'quick.transport',       label: 'Transport',       group: 'quick_actions', default_enabled: false, data_bearing: true,  toggleable: true },
+  { key: 'quick.hostel',          label: 'Hostel',          group: 'quick_actions', default_enabled: false, data_bearing: true,  toggleable: true },
+  { key: 'quick.science_projects',label: 'Science Projects',group: 'quick_actions', default_enabled: false, data_bearing: true,  toggleable: true },
+  { key: 'quick.profile',         label: 'Profile',         group: 'quick_actions', default_enabled: false, data_bearing: true,  toggleable: true },
+  // Relocated quick actions (stable keys retained for existing overrides and API guards)
+  { key: 'topbar.diary',          label: 'Smart Diary',           group: 'quick_actions', default_enabled: false, data_bearing: true,  toggleable: true },
+  { key: 'topbar.lms',            label: 'LMS',             group: 'quick_actions', default_enabled: false, data_bearing: true,  toggleable: true },
+  { key: 'comm.messenger', label: 'Messenger', group: 'quick_actions', default_enabled: false, data_bearing: true, toggleable: true },
   // home
-  { key: 'home.todays_snapshot',  label: "Today's Snapshot (attendance)", group: 'home', default_enabled: true, data_bearing: true, toggleable: true },
-  { key: 'home.academic_advisor', label: 'Academic Advisor',group: 'home',          default_enabled: true, data_bearing: true,  toggleable: true },
+  { key: 'home.todays_snapshot',  label: "Today's Snapshot (attendance)", group: 'home', default_enabled: false, data_bearing: true, toggleable: true },
+  { key: 'home.academic_advisor', label: 'Academic Advisor',group: 'home',          default_enabled: false, data_bearing: true,  toggleable: true },
   // bottom_nav
-  { key: 'nav.time_table',        label: 'Time Table',      group: 'bottom_nav',    default_enabled: true, data_bearing: true,  toggleable: true },
-  { key: 'nav.fees',              label: 'Fees',            group: 'bottom_nav',    default_enabled: true, data_bearing: true,  toggleable: true },
-  { key: 'nav.results',           label: 'Results',         group: 'bottom_nav',    default_enabled: true, data_bearing: true,  toggleable: true },
+  { key: 'nav.time_table',        label: 'Time Table',      group: 'bottom_nav',    default_enabled: false, data_bearing: true,  toggleable: true },
+  { key: 'nav.fees',              label: 'Fees',            group: 'bottom_nav',    default_enabled: false, data_bearing: true,  toggleable: true },
+  { key: 'nav.results',           label: 'Results',         group: 'bottom_nav',    default_enabled: false, data_bearing: true,  toggleable: true },
+  { key: 'nav.calendar',          label: 'Academic Calendar',group: 'bottom_nav',    default_enabled: false, data_bearing: true,  toggleable: true },
   { key: 'nav.home',              label: 'Home',            group: 'bottom_nav',    default_enabled: true, data_bearing: true,  toggleable: false },
 ];
 

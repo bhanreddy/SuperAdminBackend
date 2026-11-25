@@ -1,0 +1,5 @@
+require('dotenv').config({quiet:true});
+const base=process.env.SCHOOL_SUPABASE_URL.replace(/\/$/,'')+'/rest/v1/';
+const key=process.env.SCHOOL_SUPABASE_SERVICE_ROLE_KEY;
+async function read(table,query){const response=await fetch(base+table+'?'+query,{headers:{apikey:key,Authorization:'Bearer '+key,Prefer:'count=exact'},signal:AbortSignal.timeout(15000)});if(!response.ok)throw Error('HTTP_'+response.status);return {count:response.headers.get('content-range'),rows:await response.json()};}
+(async()=>{const results=await Promise.all([read('school_feature_overrides','select=school_id,feature_key&enabled=eq.true&feature_key=neq.dashboard'),read('school_feature_flags','select=school_id,feature_key&enabled=eq.true&feature_key=neq.nav.home'),read('activity_logs','select=metadata,created_at&action=eq.DISABLE_ALL&order=created_at.desc&limit=10')]);console.log(JSON.stringify({enabled_modules:results[0].rows.length,enabled_portal:results[1].rows.length,audited_schools:results[2].rows.map(r=>r.metadata.school_id)}));})().catch(e=>{console.error(e.message);process.exitCode=1});
