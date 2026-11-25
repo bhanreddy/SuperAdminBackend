@@ -244,6 +244,7 @@ END $$;
 
 -- Preserve existing targeted notices and their read state. Unaddressed global
 -- legacy rows are deliberately not reassigned to arbitrary employees.
+-- Some installations address legacy notices only by user_id.
 DO $$ BEGIN
  IF to_regclass('public.notifications') IS NOT NULL AND to_regclass('public.founders') IS NOT NULL THEN
   INSERT INTO notification_events(source_key,channel,kind,title,body,audience,created_at,processed_at)
@@ -251,7 +252,7 @@ DO $$ BEGIN
     left(COALESCE(NULLIF(n.title,''),'Notification'),160),left(COALESCE(n.body,''),2000),
     jsonb_build_object('mode','direct','user_ids',jsonb_agg(DISTINCT u.id)),COALESCE(n.created_at,now()),now()
   FROM notifications n JOIN internal_users u ON u.id=n.user_id OR u.auth_user_id=n.user_id
-   OR EXISTS(SELECT 1 FROM founders f WHERE f.id=n.founder_id AND (f.user_id=u.id OR f.user_id=u.auth_user_id))
+   OR EXISTS(SELECT 1 FROM founders f WHERE f.id::text=to_jsonb(n)->>'founder_id' AND (f.user_id=u.id OR f.user_id=u.auth_user_id))
   GROUP BY n.id,n.title,n.body,n.created_at ON CONFLICT(source_key) DO NOTHING;
   INSERT INTO notification_inbox(event_id,user_id,created_at,read_at)
   SELECT e.id,u.id,e.created_at,n.read_at FROM notification_events e

@@ -436,6 +436,42 @@ test("Connect and legacy targeted notifications join the shared inbox without ex
     !(await service.list(alice)).data.some((n) => n.title === "Field feedback"),
   );
 });
+test("migration backfills addressed legacy notices when founder_id is absent", async () => {
+  const legacy = new PGlite();
+  try {
+    await legacy.exec(`
+      CREATE TABLE internal_users (id uuid PRIMARY KEY, auth_user_id uuid);
+      CREATE TABLE internal_user_sessions (id uuid PRIMARY KEY);
+      CREATE TABLE internal_user_schools (user_id uuid);
+      CREATE TABLE founders (id uuid PRIMARY KEY, user_id uuid);
+      CREATE TABLE notifications (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid, title text,
+        body text, read_at timestamptz, created_at timestamptz DEFAULT now()
+      );
+      INSERT INTO internal_users VALUES
+        ('10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001'),
+        ('10000000-0000-0000-0000-000000000002', NULL);
+      INSERT INTO notifications (user_id,title,read_at) VALUES
+        ('20000000-0000-0000-0000-000000000001', 'Addressed notice', now()),
+        (NULL, 'Global notice', NULL);
+    `);
+    await legacy.exec(fs.readFileSync(
+      path.join(__dirname, "../../src/db/migrations/34_notification_center.sql"),
+      "utf8",
+    ));
+    const { rows } = await legacy.query(`
+      SELECT event.title, inbox.user_id, inbox.read_at IS NOT NULL AS was_read
+      FROM notification_inbox inbox JOIN notification_events event ON event.id=inbox.event_id
+    `);
+    assert.deepEqual(rows, [{
+      title: "Addressed notice",
+      user_id: "10000000-0000-0000-0000-000000000001",
+      was_read: true,
+    }]);
+  } finally {
+    await legacy.close();
+  }
+});
 test("one poisoned fanout cannot block later events; retries roll back partial recipients and dead-letter after eight attempts", async () => {
   const poison = await event();
   const healthy = await event();
