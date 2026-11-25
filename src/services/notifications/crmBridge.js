@@ -11,7 +11,7 @@ function createCrmNotificationBridge(schoolSql, crmSql) {
         OR EXISTS(SELECT 1 FROM founders f WHERE f.id=ANY(${schoolSql.array(event.founder_ids)}::uuid[]) AND (f.user_id=u.id OR f.user_id=u.auth_user_id))`;
       // All payloads are generic signals. CRM authorization and owner scope are
       // checked by its existing API when opening the record, never widened here.
-      await schoolSql`INSERT INTO notification_events(source_key,channel,kind,title,priority,audience,created_at)
+      await schoolSql`INSERT INTO superadmin_notification_events(source_key,channel,kind,title,priority,audience,created_at)
         VALUES(${`crm:${event.id}`},${event.channel},${event.kind},${event.title},${event.priority},
           ${schoolSql.json({ mode: "direct", user_ids: recipients.map((r) => r.id), include_founders: true })},${event.created_at})
         ON CONFLICT(source_key) DO NOTHING`;

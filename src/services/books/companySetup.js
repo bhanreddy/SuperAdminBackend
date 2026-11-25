@@ -14,10 +14,10 @@ async function initializeCompanyBooks(db, schema, name) {
     for (const fn of ['books_immutable_journal','books_check_journal_balance','books_guard_document','books_guard_new_line']) await tx.unsafe(`ALTER FUNCTION "${schema}"."${fn}"() SET search_path TO "${schema}", pg_catalog`);
     // Notification integration is optional until migration 34 is installed.
     // New company schemas need their own trigger; LIKE never copies triggers.
-    const [notificationSchema] = await tx`SELECT to_regprocedure('public.notification_capture()') AS installed`;
+    const [notificationSchema] = await tx`SELECT to_regprocedure('public.superadmin_notification_capture()') AS installed`;
     if (notificationSchema.installed) {
-      await tx.unsafe(`DROP TRIGGER IF EXISTS notification_source_event ON "${schema}".books_activity`);
-      await tx.unsafe(`CREATE TRIGGER notification_source_event AFTER INSERT ON "${schema}".books_activity FOR EACH ROW EXECUTE FUNCTION public.notification_capture('finance','','/books','Accounting activity')`);
+      await tx.unsafe(`DROP TRIGGER IF EXISTS superadmin_notification_source_event ON "${schema}".books_activity`);
+      await tx.unsafe(`CREATE TRIGGER superadmin_notification_source_event AFTER INSERT ON "${schema}".books_activity FOR EACH ROW EXECUTE FUNCTION public.superadmin_notification_capture('finance','','/books','Accounting activity')`);
     }
     if (!existing.table_name) await tx`UPDATE books_settings SET organization_name=${name} WHERE id=1`;
   });

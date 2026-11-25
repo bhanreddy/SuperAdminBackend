@@ -76,7 +76,7 @@ async function drain() {
 }
 async function event(options = {}) {
   const [e] =
-    await sql`INSERT INTO notification_events(source_key,channel,kind,title,audience,required_permission,school_id,priority)
+    await sql`INSERT INTO superadmin_notification_events(source_key,channel,kind,title,audience,required_permission,school_id,priority)
  VALUES(${randomUUID()},${options.channel || "system"},'test','Private update',${sql.json(options.audience || { mode: "direct", user_ids: [alice.id] })},${options.permission || null},${options.school || null},${options.priority || "normal"}) RETURNING *`;
   return e;
 }
@@ -209,14 +209,14 @@ test("role announcements are idempotent; payload mismatch and non-founder publis
 });
 test("transactional source capture rolls back with business data; updates produce one event without raw customer content", async () => {
   const [before] =
-    await sql`SELECT count(*)::int AS n FROM notification_events`;
+    await sql`SELECT count(*)::int AS n FROM superadmin_notification_events`;
   await assert.rejects(
     sql.begin(async (tx) => {
       await tx`INSERT INTO complaints(school_id,status,raised_by) VALUES(101,'OPEN',${alice.id})`;
       throw new Error("rollback");
     }),
   );
-  const [after] = await sql`SELECT count(*)::int AS n FROM notification_events`;
+  const [after] = await sql`SELECT count(*)::int AS n FROM superadmin_notification_events`;
   assert.equal(after.n, before.n);
   const [ticket] =
     await sql`INSERT INTO complaints(school_id,status,raised_by,assigned_to) VALUES(101,'OPEN',${alice.id},${alice.id}) RETURNING id`;
@@ -277,7 +277,7 @@ test("keyset pagination preserves tied microsecond timestamps without gaps or du
     targets.push(x.id);
   }
   await drain();
-  await sql`UPDATE notification_inbox SET created_at='2028-01-01 00:00:00.123456+00' WHERE event_id=ANY(${sql.array(targets)}::uuid[])`;
+  await sql`UPDATE superadmin_notification_inbox SET created_at='2028-01-01 00:00:00.123456+00' WHERE event_id=ANY(${sql.array(targets)}::uuid[])`;
   let next,
     ids = [];
   do {
@@ -319,7 +319,7 @@ test("channel preferences suppress inbox only, preserve mandatory security and r
   await drain();
   assert.ok(!(await service.list(alice)).data.some((x) => x.event_id === e.id));
   const deliveries =
-    await sql`SELECT d.* FROM notification_deliveries d JOIN notification_inbox n ON n.id=d.inbox_id WHERE n.event_id=${e.id}`;
+    await sql`SELECT d.* FROM superadmin_notification_deliveries d JOIN superadmin_notification_inbox n ON n.id=d.inbox_id WHERE n.event_id=${e.id}`;
   assert.equal(deliveries.length, 1);
   await assert.rejects(
     service.setPreferences(alice, "security", { inbox_enabled: false }),
@@ -341,20 +341,20 @@ test("queued delivery rechecks opt-outs and account suspension; claim leases rec
   const e = await event();
   await drain();
   const jobs =
-    await sql`SELECT d.* FROM notification_deliveries d JOIN notification_inbox n ON n.id=d.inbox_id WHERE n.event_id=${e.id}`;
+    await sql`SELECT d.* FROM superadmin_notification_deliveries d JOIN superadmin_notification_inbox n ON n.id=d.inbox_id WHERE n.event_id=${e.id}`;
   assert.equal(jobs.length, 1);
-  await sql`UPDATE notification_deliveries SET available_at=now()+interval '1 day' WHERE id<>${jobs[0].id}`;
+  await sql`UPDATE superadmin_notification_deliveries SET available_at=now()+interval '1 day' WHERE id<>${jobs[0].id}`;
   const job = await worker.claim();
   assert.equal(job.id, jobs[0].id);
   assert.equal(await worker.claim(), undefined);
-  await sql`UPDATE notification_deliveries SET lease_until=now()-interval '1 second' WHERE id=${job.id}`;
+  await sql`UPDATE superadmin_notification_deliveries SET lease_until=now()-interval '1 second' WHERE id=${job.id}`;
   const replacement = await worker.claim();
   assert.equal(replacement.id, job.id);
   assert.notEqual(replacement.lease_token, job.lease_token);
   await service.setPreferences(alice, "system", { email_enabled: false });
   await worker.deliver(replacement);
   const [skipped] =
-    await sql`SELECT state FROM notification_deliveries WHERE id=${job.id}`;
+    await sql`SELECT state FROM superadmin_notification_deliveries WHERE id=${job.id}`;
   assert.equal(skipped.state, "skipped");
   assert.equal(sent.length, 0);
 });
@@ -362,21 +362,21 @@ test("provider failures back off, exhaust to dead letters, and can be retried by
   await service.setPreferences(alice, "system", { email_enabled: true });
   const e = await event();
   await drain();
-  await sql`UPDATE notification_deliveries SET available_at=now()+interval '1 day' WHERE inbox_id NOT IN(SELECT id FROM notification_inbox WHERE event_id=${e.id})`;
+  await sql`UPDATE superadmin_notification_deliveries SET available_at=now()+interval '1 day' WHERE inbox_id NOT IN(SELECT id FROM superadmin_notification_inbox WHERE event_id=${e.id})`;
   let job = await worker.claim();
   sendError = Object.assign(new Error("PROVIDER_TIMEOUT"), {
     permanent: false,
   });
   await worker.deliver(job);
   let [state] =
-    await sql`SELECT state,available_at>now() AS delayed FROM notification_deliveries WHERE id=${job.id}`;
+    await sql`SELECT state,available_at>now() AS delayed FROM superadmin_notification_deliveries WHERE id=${job.id}`;
   assert.equal(state.state, "pending");
   assert.ok(state.delayed);
-  await sql`UPDATE notification_deliveries SET attempts=7,available_at=now() WHERE id=${job.id}`;
+  await sql`UPDATE superadmin_notification_deliveries SET attempts=7,available_at=now() WHERE id=${job.id}`;
   job = await worker.claim();
   await worker.deliver(job);
   [state] =
-    await sql`SELECT state FROM notification_deliveries WHERE id=${job.id}`;
+    await sql`SELECT state FROM superadmin_notification_deliveries WHERE id=${job.id}`;
   assert.equal(state.state, "dead");
   await assert.rejects(service.retry(bob, job.id), { status: 403 });
   await service.retry(root, job.id);
@@ -399,8 +399,8 @@ test("device registration is session-bound; stale FCM tokens are removed without
   const e = await event({ channel: "security" });
   await drain();
   const [job] =
-    await sql`SELECT d.* FROM notification_deliveries d JOIN notification_inbox n ON n.id=d.inbox_id WHERE n.event_id=${e.id}`;
-  await sql`UPDATE notification_deliveries SET available_at=now()+interval '1 day' WHERE id<>${job.id}`;
+    await sql`SELECT d.* FROM superadmin_notification_deliveries d JOIN superadmin_notification_inbox n ON n.id=d.inbox_id WHERE n.event_id=${e.id}`;
+  await sql`UPDATE superadmin_notification_deliveries SET available_at=now()+interval '1 day' WHERE id<>${job.id}`;
   const claimed = await worker.claim();
   sendError = Object.assign(new Error("PROVIDER_HTTP_404_UNREGISTERED"), {
     permanent: true,
@@ -408,12 +408,12 @@ test("device registration is session-bound; stale FCM tokens are removed without
   });
   await worker.deliver(claimed);
   assert.equal(
-    (await sql`SELECT id FROM notification_devices WHERE id=${device.id}`)
+    (await sql`SELECT id FROM superadmin_notification_devices WHERE id=${device.id}`)
       .length,
     0,
   );
   const [dead] =
-    await sql`SELECT state,device_id FROM notification_deliveries WHERE id=${job.id}`;
+    await sql`SELECT state,device_id FROM superadmin_notification_deliveries WHERE id=${job.id}`;
   assert.equal(dead.state, "dead");
   assert.equal(dead.device_id, null);
 });
@@ -436,7 +436,7 @@ test("Connect and legacy targeted notifications join the shared inbox without ex
     !(await service.list(alice)).data.some((n) => n.title === "Field feedback"),
   );
 });
-test("migration backfills addressed legacy notices when founder_id is absent", async () => {
+test("migration preserves SchoolIMS notification tables and backfills legacy notices without founder_id", async () => {
   const legacy = new PGlite();
   try {
     await legacy.exec(`
@@ -444,6 +444,10 @@ test("migration backfills addressed legacy notices when founder_id is absent", a
       CREATE TABLE internal_user_sessions (id uuid PRIMARY KEY);
       CREATE TABLE internal_user_schools (user_id uuid);
       CREATE TABLE founders (id uuid PRIMARY KEY, user_id uuid);
+      CREATE TABLE notification_events (id integer PRIMARY KEY);
+      CREATE TABLE notification_preferences (id integer PRIMARY KEY);
+      CREATE TABLE notification_deliveries (id integer PRIMARY KEY);
+      INSERT INTO notification_events VALUES (42);
       CREATE TABLE notifications (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid, title text,
         body text, read_at timestamptz, created_at timestamptz DEFAULT now()
@@ -461,13 +465,17 @@ test("migration backfills addressed legacy notices when founder_id is absent", a
     ));
     const { rows } = await legacy.query(`
       SELECT event.title, inbox.user_id, inbox.read_at IS NOT NULL AS was_read
-      FROM notification_inbox inbox JOIN notification_events event ON event.id=inbox.event_id
+      FROM superadmin_notification_inbox inbox JOIN superadmin_notification_events event ON event.id=inbox.event_id
     `);
     assert.deepEqual(rows, [{
       title: "Addressed notice",
       user_id: "10000000-0000-0000-0000-000000000001",
       was_read: true,
     }]);
+    assert.deepEqual(
+      (await legacy.query("SELECT id FROM notification_events")).rows,
+      [{ id: 42 }],
+    );
   } finally {
     await legacy.close();
   }
@@ -476,34 +484,34 @@ test("one poisoned fanout cannot block later events; retries roll back partial r
   const poison = await event();
   const healthy = await event();
   await sql.unsafe(
-    `ALTER TABLE notification_inbox ADD CONSTRAINT notification_test_poison CHECK(event_id<>'${poison.id}'::uuid) NOT VALID`,
+    `ALTER TABLE superadmin_notification_inbox ADD CONSTRAINT notification_test_poison CHECK(event_id<>'${poison.id}'::uuid) NOT VALID`,
   );
   try {
     await drain();
     let [failed] =
-      await sql`SELECT attempts,processed_at,dead_at FROM notification_events WHERE id=${poison.id}`;
+      await sql`SELECT attempts,processed_at,dead_at FROM superadmin_notification_events WHERE id=${poison.id}`;
     assert.equal(failed.attempts, 1);
     assert.equal(failed.processed_at, null);
     assert.equal(
-      (await sql`SELECT id FROM notification_inbox WHERE event_id=${poison.id}`)
+      (await sql`SELECT id FROM superadmin_notification_inbox WHERE event_id=${poison.id}`)
         .length,
       0,
     );
     assert.ok(
       (await service.list(alice)).data.some((n) => n.event_id === healthy.id),
     );
-    await sql`UPDATE notification_events SET attempts=7,available_at=now() WHERE id=${poison.id}`;
+    await sql`UPDATE superadmin_notification_events SET attempts=7,available_at=now() WHERE id=${poison.id}`;
     await drain();
     [failed] =
-      await sql`SELECT dead_at FROM notification_events WHERE id=${poison.id}`;
+      await sql`SELECT dead_at FROM superadmin_notification_events WHERE id=${poison.id}`;
     assert.ok(failed.dead_at);
   } finally {
-    await sql`ALTER TABLE notification_inbox DROP CONSTRAINT notification_test_poison`;
+    await sql`ALTER TABLE superadmin_notification_inbox DROP CONSTRAINT notification_test_poison`;
   }
   await service.retryEvent(root, poison.id);
   await drain();
   assert.equal(
-    (await sql`SELECT id FROM notification_inbox WHERE event_id=${poison.id}`)
+    (await sql`SELECT id FROM superadmin_notification_inbox WHERE event_id=${poison.id}`)
       .length,
     1,
   );
@@ -513,11 +521,11 @@ test("suspended users and revoked push sessions cannot receive queued external n
   const e = await event();
   await drain();
   const [j] =
-    await sql`SELECT d.* FROM notification_deliveries d JOIN notification_inbox n ON n.id=d.inbox_id WHERE n.event_id=${e.id}`;
+    await sql`SELECT d.* FROM superadmin_notification_deliveries d JOIN superadmin_notification_inbox n ON n.id=d.inbox_id WHERE n.event_id=${e.id}`;
   await sql`UPDATE internal_users SET status='SUSPENDED' WHERE id=${alice.id}`;
-  await sql`UPDATE notification_deliveries SET state='processing',lease_token=${randomUUID()},lease_until=now()+interval '1 minute' WHERE id=${j.id}`;
+  await sql`UPDATE superadmin_notification_deliveries SET state='processing',lease_token=${randomUUID()},lease_until=now()+interval '1 minute' WHERE id=${j.id}`;
   const [leased] =
-    await sql`SELECT * FROM notification_deliveries WHERE id=${j.id}`;
+    await sql`SELECT * FROM superadmin_notification_deliveries WHERE id=${j.id}`;
   await worker.deliver(leased);
   assert.equal(sent.length, 0);
   assert.equal((await request(app).get(base).set(auth(alice))).status, 401);
@@ -529,11 +537,11 @@ test("suspended users and revoked push sessions cannot receive queued external n
   const push = await event({ channel: "security" });
   await drain();
   const [p] =
-    await sql`SELECT d.* FROM notification_deliveries d JOIN notification_inbox n ON n.id=d.inbox_id WHERE n.event_id=${push.id}`;
+    await sql`SELECT d.* FROM superadmin_notification_deliveries d JOIN superadmin_notification_inbox n ON n.id=d.inbox_id WHERE n.event_id=${push.id}`;
   await sql`UPDATE internal_user_sessions SET revoked_at=now() WHERE id=${alice.sessionId}`;
-  await sql`UPDATE notification_deliveries SET state='processing',lease_token=${randomUUID()},lease_until=now()+interval '1 minute' WHERE id=${p.id}`;
+  await sql`UPDATE superadmin_notification_deliveries SET state='processing',lease_token=${randomUUID()},lease_until=now()+interval '1 minute' WHERE id=${p.id}`;
   const [leasedPush] =
-    await sql`SELECT * FROM notification_deliveries WHERE id=${p.id}`;
+    await sql`SELECT * FROM superadmin_notification_deliveries WHERE id=${p.id}`;
   await worker.deliver(leasedPush);
   assert.equal(sent.length, 0);
   await sql`UPDATE internal_user_sessions SET revoked_at=NULL WHERE id=${alice.sessionId}`;
@@ -558,7 +566,7 @@ test("CRM outbox crosses databases idempotently and never acknowledges a failed 
       await crm`INSERT INTO enquiries(status,assigned_user_id,name) VALUES('NEW',${bob.id},'Private customer name') RETURNING id`;
     let fail = true;
     const target = (strings, ...values) => {
-      if (fail && strings[0].includes("INSERT INTO notification_events"))
+      if (fail && strings[0].includes("INSERT INTO superadmin_notification_events"))
         throw new Error("target down");
       return sql(strings, ...values);
     };
@@ -606,22 +614,22 @@ test("Expo acceptance waits for a receipt; delayed receipts do not resend and su
   const e = await event();
   await drain();
   const [job] =
-    await sql`SELECT d.* FROM notification_deliveries d JOIN notification_inbox n ON n.id=d.inbox_id WHERE n.event_id=${e.id}`;
-  await sql`UPDATE notification_deliveries SET available_at=now()+interval '1 day' WHERE id<>${job.id}`;
+    await sql`SELECT d.* FROM superadmin_notification_deliveries d JOIN superadmin_notification_inbox n ON n.id=d.inbox_id WHERE n.event_id=${e.id}`;
+  await sql`UPDATE superadmin_notification_deliveries SET available_at=now()+interval '1 day' WHERE id<>${job.id}`;
   await nativeWorker.deliver(await nativeWorker.claim());
   assert.equal(
-    (await sql`SELECT state FROM notification_deliveries WHERE id=${job.id}`)[0]
+    (await sql`SELECT state FROM superadmin_notification_deliveries WHERE id=${job.id}`)[0]
       .state,
     "awaiting_receipt",
   );
-  await sql`UPDATE notification_deliveries SET available_at=now() WHERE id=${job.id}`;
+  await sql`UPDATE superadmin_notification_deliveries SET available_at=now() WHERE id=${job.id}`;
   await nativeWorker.checkReceipts();
   assert.equal(sends, 1);
   confirmed = true;
-  await sql`UPDATE notification_deliveries SET available_at=now() WHERE id=${job.id}`;
+  await sql`UPDATE superadmin_notification_deliveries SET available_at=now() WHERE id=${job.id}`;
   await nativeWorker.checkReceipts();
   assert.equal(
-    (await sql`SELECT state FROM notification_deliveries WHERE id=${job.id}`)[0]
+    (await sql`SELECT state FROM superadmin_notification_deliveries WHERE id=${job.id}`)[0]
       .state,
     "sent",
   );
@@ -639,7 +647,7 @@ test("device token rotation replaces the prior session token; status and disabli
   });
   assert.equal(
     (
-      await sql`SELECT id FROM notification_devices WHERE session_id=${alice.sessionId}`
+      await sql`SELECT id FROM superadmin_notification_devices WHERE session_id=${alice.sessionId}`
     ).length,
     1,
   );
@@ -674,7 +682,7 @@ test("Connect read state is mirrored in both directions, including reads before 
   await sql`UPDATE collaboration_notifications SET read_at=now() WHERE id=${source.id}`;
   await drain();
   const [inbox] =
-    await sql`SELECT n.id,n.read_at FROM notification_inbox n JOIN notification_events e ON e.id=n.event_id WHERE n.user_id=${ca.id} AND e.source_key=${"public.collaboration_notifications:" + source.id + ":insert"}`;
+    await sql`SELECT n.id,n.read_at FROM superadmin_notification_inbox n JOIN superadmin_notification_events e ON e.id=n.event_id WHERE n.user_id=${ca.id} AND e.source_key=${"public.collaboration_notifications:" + source.id + ":insert"}`;
   assert.ok(inbox.read_at);
   await service.update(ca, inbox.id, "unread");
   assert.equal(
@@ -685,7 +693,7 @@ test("Connect read state is mirrored in both directions, including reads before 
   );
   await sql`UPDATE collaboration_notifications SET read_at=now() WHERE id=${source.id}`;
   assert.ok(
-    (await sql`SELECT read_at FROM notification_inbox WHERE id=${inbox.id}`)[0]
+    (await sql`SELECT read_at FROM superadmin_notification_inbox WHERE id=${inbox.id}`)[0]
       .read_at,
   );
 });

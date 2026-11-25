@@ -1,7 +1,8 @@
 BEGIN;
 
 -- Control-plane employees only. Recipient identity comes from internal_users.
-CREATE TABLE notification_events (
+-- The shared database already contains SchoolIMS notification tables.
+CREATE TABLE superadmin_notification_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   source_key text NOT NULL UNIQUE,
   channel text NOT NULL CHECK(channel IN ('announcements','security','assignments','support','sales','finance','payroll','approvals','deployments','curriculum','connect','system')),
@@ -23,24 +24,24 @@ CREATE TABLE notification_events (
   last_error text,
   dead_at timestamptz
 );
-CREATE INDEX notification_event_queue ON notification_events(available_at,id) WHERE processed_at IS NULL AND dead_at IS NULL;
-CREATE TABLE notification_inbox (
+CREATE INDEX superadmin_notification_event_queue ON superadmin_notification_events(available_at,id) WHERE processed_at IS NULL AND dead_at IS NULL;
+CREATE TABLE superadmin_notification_inbox (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id uuid NOT NULL REFERENCES notification_events(id) ON DELETE CASCADE,
+  event_id uuid NOT NULL REFERENCES superadmin_notification_events(id) ON DELETE CASCADE,
   user_id uuid NOT NULL REFERENCES internal_users(id) ON DELETE CASCADE,
   created_at timestamptz NOT NULL DEFAULT now(),
   read_at timestamptz,
   archived_at timestamptz,
   UNIQUE(event_id,user_id)
 );
-CREATE INDEX notification_inbox_feed ON notification_inbox(user_id,created_at DESC,id DESC) WHERE archived_at IS NULL;
-CREATE INDEX notification_inbox_unread ON notification_inbox(user_id,event_id) WHERE read_at IS NULL AND archived_at IS NULL;
-CREATE TABLE notification_write_limits (
+CREATE INDEX superadmin_notification_inbox_feed ON superadmin_notification_inbox(user_id,created_at DESC,id DESC) WHERE archived_at IS NULL;
+CREATE INDEX superadmin_notification_inbox_unread ON superadmin_notification_inbox(user_id,event_id) WHERE read_at IS NULL AND archived_at IS NULL;
+CREATE TABLE superadmin_notification_write_limits (
   user_id uuid PRIMARY KEY REFERENCES internal_users(id) ON DELETE CASCADE,
   window_at timestamptz NOT NULL DEFAULT now(),
   hits integer NOT NULL DEFAULT 1
 );
-CREATE TABLE notification_preferences (
+CREATE TABLE superadmin_notification_preferences (
   user_id uuid NOT NULL REFERENCES internal_users(id) ON DELETE CASCADE,
   channel text NOT NULL CHECK(channel IN ('announcements','security','assignments','support','sales','finance','payroll','approvals','deployments','curriculum','connect','system')),
   inbox_enabled boolean NOT NULL DEFAULT true,
@@ -51,7 +52,7 @@ CREATE TABLE notification_preferences (
   PRIMARY KEY(user_id,channel),
   CHECK(channel<>'security' OR inbox_enabled)
 );
-CREATE TABLE notification_devices (
+CREATE TABLE superadmin_notification_devices (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES internal_users(id) ON DELETE CASCADE,
   session_id uuid NOT NULL REFERENCES internal_user_sessions(id) ON DELETE CASCADE,
@@ -59,13 +60,13 @@ CREATE TABLE notification_devices (
   platform text NOT NULL CHECK(platform IN ('android','ios','web')),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX notification_devices_user ON notification_devices(user_id);
-CREATE UNIQUE INDEX notification_device_session ON notification_devices(session_id);
-CREATE TABLE notification_deliveries (
+CREATE INDEX superadmin_notification_devices_user ON superadmin_notification_devices(user_id);
+CREATE UNIQUE INDEX superadmin_notification_device_session ON superadmin_notification_devices(session_id);
+CREATE TABLE superadmin_notification_deliveries (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  inbox_id uuid NOT NULL REFERENCES notification_inbox(id) ON DELETE CASCADE,
+  inbox_id uuid NOT NULL REFERENCES superadmin_notification_inbox(id) ON DELETE CASCADE,
   transport text NOT NULL CHECK(transport IN ('email','push','sms')),
-  device_id uuid REFERENCES notification_devices(id) ON DELETE SET NULL,
+  device_id uuid REFERENCES superadmin_notification_devices(id) ON DELETE SET NULL,
   target_key text NOT NULL,
   state text NOT NULL DEFAULT 'pending' CHECK(state IN ('pending','processing','awaiting_receipt','sent','dead','skipped')),
   attempts integer NOT NULL DEFAULT 0,
@@ -79,11 +80,11 @@ CREATE TABLE notification_deliveries (
   last_error text,
   UNIQUE(inbox_id,transport,target_key)
 );
-CREATE INDEX notification_delivery_queue ON notification_deliveries(available_at,id) WHERE state IN ('pending','processing','awaiting_receipt');
+CREATE INDEX superadmin_notification_delivery_queue ON superadmin_notification_deliveries(available_at,id) WHERE state IN ('pending','processing','awaiting_receipt');
 
 -- Capture in the SAME transaction as the business write. Rollbacks remove the
 -- event too. No network calls and no sensitive source snapshots.
-CREATE FUNCTION notification_capture() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+CREATE FUNCTION superadmin_notification_capture() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path=pg_catalog,public AS $$
 DECLARE
   r jsonb := CASE WHEN TG_OP='DELETE' THEN to_jsonb(OLD) ELSE to_jsonb(NEW) END; old_r jsonb := '{}'::jsonb;
@@ -153,11 +154,11 @@ BEGIN
     event_title := left(event_title||': '||(r->>'title'),160);
   END IF;
   source := TG_TABLE_SCHEMA || '.' || TG_TABLE_NAME || ':' || COALESCE(r->>'id',gen_random_uuid()::text) || ':' || CASE WHEN TG_OP='INSERT' THEN 'insert' ELSE gen_random_uuid()::text END;
-  INSERT INTO notification_events(source_key,channel,kind,priority,title,body,action_path,school_id,required_permission,audience)
+  INSERT INTO superadmin_notification_events(source_key,channel,kind,priority,title,body,action_path,school_id,required_permission,audience)
     VALUES(source,chan,event_kind,priority_value,event_title,event_body,path,school,perm,audience_value) ON CONFLICT(source_key) DO NOTHING;
   RETURN NEW;
 END $$;
-REVOKE ALL ON FUNCTION notification_capture() FROM PUBLIC;
+REVOKE ALL ON FUNCTION superadmin_notification_capture() FROM PUBLIC;
 
 -- Modules must be installed before this migration. Optional modules are skipped.
 DO $$ DECLARE cfg text[]; BEGIN
@@ -185,34 +186,34 @@ DO $$ DECLARE cfg text[]; BEGIN
     ['curriculum_releases','curriculum','curriculum.read','','Curriculum release']
   ] LOOP
     IF to_regclass('public.'||cfg[1]) IS NOT NULL THEN
-      EXECUTE format('DROP TRIGGER IF EXISTS notification_source_event ON %I',cfg[1]);
-      EXECUTE format('CREATE TRIGGER notification_source_event AFTER INSERT OR UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION public.notification_capture(%L,%L,%L,%L)',cfg[1],cfg[2],cfg[3],cfg[4],cfg[5]);
+      EXECUTE format('DROP TRIGGER IF EXISTS superadmin_notification_source_event ON %I',cfg[1]);
+      EXECUTE format('CREATE TRIGGER superadmin_notification_source_event AFTER INSERT OR UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION public.superadmin_notification_capture(%L,%L,%L,%L)',cfg[1],cfg[2],cfg[3],cfg[4],cfg[5]);
     END IF;
   END LOOP;
-  DROP TRIGGER IF EXISTS notification_school_assignment_removed ON internal_user_schools;
-  CREATE TRIGGER notification_school_assignment_removed AFTER DELETE ON internal_user_schools FOR EACH ROW EXECUTE FUNCTION notification_capture('assignments','','','School assignment');
+  DROP TRIGGER IF EXISTS superadmin_notification_school_assignment_removed ON internal_user_schools;
+  CREATE TRIGGER superadmin_notification_school_assignment_removed AFTER DELETE ON internal_user_schools FOR EACH ROW EXECUTE FUNCTION superadmin_notification_capture('assignments','','','School assignment');
 END $$;
 
 -- Keep the existing Connect/legacy surfaces and the shared inbox consistent.
 -- The distinct-value guard makes bidirectional updates terminate immediately.
-CREATE FUNCTION notification_mirror_source_read() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+CREATE FUNCTION superadmin_notification_mirror_source_read() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path=pg_catalog,public AS $$
 DECLARE event_id_value uuid; BEGIN
  IF NEW.read_at IS NOT DISTINCT FROM OLD.read_at THEN RETURN NEW; END IF;
- UPDATE notification_events SET mirror_read_at=NEW.read_at
+ UPDATE superadmin_notification_events SET mirror_read_at=NEW.read_at
  WHERE source_key=TG_TABLE_SCHEMA||'.'||TG_TABLE_NAME||':'||NEW.id::text||':insert'
  AND jsonb_array_length(audience->'user_ids')=1
  RETURNING id INTO event_id_value;
  IF event_id_value IS NOT NULL THEN
-  UPDATE notification_inbox SET read_at=NEW.read_at WHERE event_id=event_id_value;
+  UPDATE superadmin_notification_inbox SET read_at=NEW.read_at WHERE event_id=event_id_value;
  END IF;
  RETURN NEW;
 END $$;
-CREATE FUNCTION notification_mirror_inbox_read() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+CREATE FUNCTION superadmin_notification_mirror_inbox_read() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path=pg_catalog,public AS $$
 DECLARE source text; source_id uuid; BEGIN
  IF NEW.read_at IS NOT DISTINCT FROM OLD.read_at THEN RETURN NEW; END IF;
- SELECT source_key INTO source FROM notification_events WHERE id=NEW.event_id AND jsonb_array_length(audience->'user_ids')=1;
+ SELECT source_key INTO source FROM superadmin_notification_events WHERE id=NEW.event_id AND jsonb_array_length(audience->'user_ids')=1;
  IF source LIKE 'public.collaboration_notifications:%:insert' OR source LIKE 'public.notifications:%:insert' THEN
   source_id:=split_part(source,':',2)::uuid;
   IF source LIKE 'public.collaboration_notifications:%' THEN
@@ -220,16 +221,16 @@ DECLARE source text; source_id uuid; BEGIN
   ELSE
    UPDATE notifications SET read_at=NEW.read_at WHERE id=source_id;
   END IF;
-  UPDATE notification_events SET mirror_read_at=NEW.read_at WHERE id=NEW.event_id;
+  UPDATE superadmin_notification_events SET mirror_read_at=NEW.read_at WHERE id=NEW.event_id;
  END IF;
  RETURN NEW;
 END $$;
-REVOKE ALL ON FUNCTION notification_mirror_source_read(),notification_mirror_inbox_read() FROM PUBLIC;
-CREATE TRIGGER notification_inbox_read_mirror AFTER UPDATE OF read_at ON notification_inbox FOR EACH ROW EXECUTE FUNCTION notification_mirror_inbox_read();
+REVOKE ALL ON FUNCTION superadmin_notification_mirror_source_read(),superadmin_notification_mirror_inbox_read() FROM PUBLIC;
+CREATE TRIGGER superadmin_notification_inbox_read_mirror AFTER UPDATE OF read_at ON superadmin_notification_inbox FOR EACH ROW EXECUTE FUNCTION superadmin_notification_mirror_inbox_read();
 DO $$ DECLARE t text; BEGIN
  FOREACH t IN ARRAY ARRAY['collaboration_notifications','notifications'] LOOP
   IF to_regclass('public.'||t) IS NOT NULL THEN
-   EXECUTE format('CREATE TRIGGER notification_read_mirror AFTER UPDATE OF read_at ON %I FOR EACH ROW EXECUTE FUNCTION public.notification_mirror_source_read()',t);
+   EXECUTE format('CREATE TRIGGER superadmin_notification_read_mirror AFTER UPDATE OF read_at ON %I FOR EACH ROW EXECUTE FUNCTION public.superadmin_notification_mirror_source_read()',t);
   END IF;
  END LOOP;
 END $$;
@@ -237,8 +238,8 @@ END $$;
 -- Existing non-public Books companies get the same generic activity signal.
 DO $$ DECLARE ns text; BEGIN
  FOR ns IN SELECT schemaname FROM pg_tables WHERE schemaname LIKE 'books_%' AND tablename='books_activity' LOOP
-  EXECUTE format('DROP TRIGGER IF EXISTS notification_source_event ON %I.books_activity',ns);
-  EXECUTE format('CREATE TRIGGER notification_source_event AFTER INSERT ON %I.books_activity FOR EACH ROW EXECUTE FUNCTION public.notification_capture(%L,%L,%L,%L)',ns,'finance','','/books','Accounting activity');
+  EXECUTE format('DROP TRIGGER IF EXISTS superadmin_notification_source_event ON %I.books_activity',ns);
+  EXECUTE format('CREATE TRIGGER superadmin_notification_source_event AFTER INSERT ON %I.books_activity FOR EACH ROW EXECUTE FUNCTION public.superadmin_notification_capture(%L,%L,%L,%L)',ns,'finance','','/books','Accounting activity');
  END LOOP;
 END $$;
 
@@ -247,31 +248,31 @@ END $$;
 -- Some installations address legacy notices only by user_id.
 DO $$ BEGIN
  IF to_regclass('public.notifications') IS NOT NULL AND to_regclass('public.founders') IS NOT NULL THEN
-  INSERT INTO notification_events(source_key,channel,kind,title,body,audience,created_at,processed_at)
+  INSERT INTO superadmin_notification_events(source_key,channel,kind,title,body,audience,created_at,processed_at)
   SELECT 'public.notifications:'||n.id::text||':insert','system','legacy',
     left(COALESCE(NULLIF(n.title,''),'Notification'),160),left(COALESCE(n.body,''),2000),
     jsonb_build_object('mode','direct','user_ids',jsonb_agg(DISTINCT u.id)),COALESCE(n.created_at,now()),now()
   FROM notifications n JOIN internal_users u ON u.id=n.user_id OR u.auth_user_id=n.user_id
    OR EXISTS(SELECT 1 FROM founders f WHERE f.id::text=to_jsonb(n)->>'founder_id' AND (f.user_id=u.id OR f.user_id=u.auth_user_id))
   GROUP BY n.id,n.title,n.body,n.created_at ON CONFLICT(source_key) DO NOTHING;
-  INSERT INTO notification_inbox(event_id,user_id,created_at,read_at)
-  SELECT e.id,u.id,e.created_at,n.read_at FROM notification_events e
+  INSERT INTO superadmin_notification_inbox(event_id,user_id,created_at,read_at)
+  SELECT e.id,u.id,e.created_at,n.read_at FROM superadmin_notification_events e
   JOIN notifications n ON e.source_key='public.notifications:'||n.id::text||':insert'
   JOIN internal_users u ON (e.audience->'user_ids') ? u.id::text ON CONFLICT(event_id,user_id) DO NOTHING;
  END IF;
 END $$;
 
-ALTER TABLE notification_write_limits ENABLE ROW LEVEL SECURITY;
-ALTER TABLE notification_events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE notification_inbox ENABLE ROW LEVEL SECURITY;
-ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
-ALTER TABLE notification_devices ENABLE ROW LEVEL SECURITY;
-ALTER TABLE notification_deliveries ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON notification_events,notification_inbox,notification_preferences,notification_devices,notification_deliveries,notification_write_limits FROM PUBLIC;
+ALTER TABLE superadmin_notification_write_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE superadmin_notification_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE superadmin_notification_inbox ENABLE ROW LEVEL SECURITY;
+ALTER TABLE superadmin_notification_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE superadmin_notification_devices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE superadmin_notification_deliveries ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON superadmin_notification_events,superadmin_notification_inbox,superadmin_notification_preferences,superadmin_notification_devices,superadmin_notification_deliveries,superadmin_notification_write_limits FROM PUBLIC;
 DO $$ DECLARE role_name text; BEGIN
   FOREACH role_name IN ARRAY ARRAY['anon','authenticated'] LOOP
     IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname=role_name) THEN
-      EXECUTE format('REVOKE ALL ON notification_events,notification_inbox,notification_preferences,notification_devices,notification_deliveries,notification_write_limits FROM %I',role_name);
+      EXECUTE format('REVOKE ALL ON superadmin_notification_events,superadmin_notification_inbox,superadmin_notification_preferences,superadmin_notification_devices,superadmin_notification_deliveries,superadmin_notification_write_limits FROM %I',role_name);
     END IF;
   END LOOP;
 END $$;

@@ -61,10 +61,10 @@ function createNotificationService(
   return {
     async rateLimit(user) {
       const [rate] =
-        await sql`INSERT INTO notification_write_limits(user_id) VALUES(${user.id})
+        await sql`INSERT INTO superadmin_notification_write_limits(user_id) VALUES(${user.id})
         ON CONFLICT(user_id) DO UPDATE SET
-          hits=CASE WHEN notification_write_limits.window_at<now()-interval '1 minute' THEN 1 ELSE notification_write_limits.hits+1 END,
-          window_at=CASE WHEN notification_write_limits.window_at<now()-interval '1 minute' THEN now() ELSE notification_write_limits.window_at END
+          hits=CASE WHEN superadmin_notification_write_limits.window_at<now()-interval '1 minute' THEN 1 ELSE superadmin_notification_write_limits.hits+1 END,
+          window_at=CASE WHEN superadmin_notification_write_limits.window_at<now()-interval '1 minute' THEN now() ELSE superadmin_notification_write_limits.window_at END
         RETURNING hits`;
       check(
         rate.hits <= 120,
@@ -75,11 +75,11 @@ function createNotificationService(
     async bootstrap(user) {
       const [counts, prefs, devices] = await Promise.all([
         sql`SELECT e.channel,count(*)::int AS total,count(*) FILTER(WHERE n.read_at IS NULL)::int AS unread
-          FROM notification_inbox n JOIN notification_events e ON e.id=n.event_id
-          LEFT JOIN notification_preferences p ON p.user_id=n.user_id AND p.channel=e.channel
+          FROM superadmin_notification_inbox n JOIN superadmin_notification_events e ON e.id=n.event_id
+          LEFT JOIN superadmin_notification_preferences p ON p.user_id=n.user_id AND p.channel=e.channel
           WHERE ${visible(sql, user)} GROUP BY e.channel`,
-        sql`SELECT channel,inbox_enabled,email_enabled,push_enabled,sms_enabled FROM notification_preferences WHERE user_id=${user.id}`,
-        sql`SELECT count(*)::int AS count FROM notification_devices d JOIN internal_user_sessions s ON s.id=d.session_id
+        sql`SELECT channel,inbox_enabled,email_enabled,push_enabled,sms_enabled FROM superadmin_notification_preferences WHERE user_id=${user.id}`,
+        sql`SELECT count(*)::int AS count FROM superadmin_notification_devices d JOIN internal_user_sessions s ON s.id=d.session_id
           WHERE d.user_id=${user.id} AND s.user_id=d.user_id AND s.revoked_at IS NULL AND s.expires_at>now()`,
       ]);
       return {
@@ -112,8 +112,8 @@ function createNotificationService(
       );
       const rows =
         await sql`SELECT n.id,n.event_id,n.created_at::text AS created_at,n.read_at,e.school_id,e.channel,e.kind,e.priority,e.title,e.body,e.action_path
-        FROM notification_inbox n JOIN notification_events e ON e.id=n.event_id
-        LEFT JOIN notification_preferences p ON p.user_id=n.user_id AND p.channel=e.channel
+        FROM superadmin_notification_inbox n JOIN superadmin_notification_events e ON e.id=n.event_id
+        LEFT JOIN superadmin_notification_preferences p ON p.user_id=n.user_id AND p.channel=e.channel
         WHERE ${visible(sql, user)}
           AND (${selected}::text IS NULL OR e.channel=${selected})
           AND (${query.unread === "true"}=false OR n.read_at IS NULL)
@@ -138,12 +138,12 @@ function createNotificationService(
         "Invalid operation",
       );
       const [row] = await retryDeadlock(
-        () => sql`UPDATE notification_inbox target SET
+        () => sql`UPDATE superadmin_notification_inbox target SET
         read_at=CASE WHEN ${operation}='read' THEN COALESCE(target.read_at,now()) WHEN ${operation}='unread' THEN NULL ELSE target.read_at END,
         archived_at=CASE WHEN ${operation}='archive' THEN COALESCE(target.archived_at,now()) ELSE target.archived_at END
         WHERE target.id=${id} AND target.user_id=${user.id} AND target.id IN (
-          SELECT n.id FROM notification_inbox n JOIN notification_events e ON e.id=n.event_id
-          LEFT JOIN notification_preferences p ON p.user_id=n.user_id AND p.channel=e.channel WHERE ${visible(sql, user, operation === "archive")}
+          SELECT n.id FROM superadmin_notification_inbox n JOIN superadmin_notification_events e ON e.id=n.event_id
+          LEFT JOIN superadmin_notification_preferences p ON p.user_id=n.user_id AND p.channel=e.channel WHERE ${visible(sql, user, operation === "archive")}
         ) RETURNING id,read_at,archived_at`,
       );
       check(row, "Notification not found", 404);
@@ -158,10 +158,10 @@ function createNotificationService(
         "A valid through timestamp is required",
       );
       const rows = await retryDeadlock(
-        () => sql`UPDATE notification_inbox target SET read_at=now()
+        () => sql`UPDATE superadmin_notification_inbox target SET read_at=now()
         WHERE target.user_id=${user.id} AND target.read_at IS NULL AND target.id IN (
-          SELECT n.id FROM notification_inbox n JOIN notification_events e ON e.id=n.event_id
-          LEFT JOIN notification_preferences p ON p.user_id=n.user_id AND p.channel=e.channel
+          SELECT n.id FROM superadmin_notification_inbox n JOIN superadmin_notification_events e ON e.id=n.event_id
+          LEFT JOIN superadmin_notification_preferences p ON p.user_id=n.user_id AND p.channel=e.channel
           WHERE ${visible(sql, user)} AND n.created_at<=${body.through}::text::timestamptz AND (${selected}::text IS NULL OR e.channel=${selected})) RETURNING id`,
       );
       return { updated: rows.length };
@@ -181,8 +181,8 @@ function createNotificationService(
           409,
         );
       return sql.begin(async (tx) => {
-        await tx`INSERT INTO notification_preferences(user_id,channel) VALUES(${user.id},${id}) ON CONFLICT DO NOTHING`;
-        const [row] = await tx`UPDATE notification_preferences SET
+        await tx`INSERT INTO superadmin_notification_preferences(user_id,channel) VALUES(${user.id},${id}) ON CONFLICT DO NOTHING`;
+        const [row] = await tx`UPDATE superadmin_notification_preferences SET
           inbox_enabled=COALESCE(${values.inbox_enabled ?? null},inbox_enabled),email_enabled=COALESCE(${values.email_enabled ?? null},email_enabled),
           push_enabled=COALESCE(${values.push_enabled ?? null},push_enabled),sms_enabled=COALESCE(${values.sms_enabled ?? null},sms_enabled),updated_at=now()
           WHERE user_id=${user.id} AND channel=${id} RETURNING channel,inbox_enabled,email_enabled,push_enabled,sms_enabled`;
@@ -199,7 +199,7 @@ function createNotificationService(
       return sql.begin(async (tx) => {
         await tx`SELECT pg_advisory_xact_lock(hashtextextended(${user.id},34))`;
         const [existing] =
-          await tx`SELECT id,payload_hash,created_at FROM notification_events WHERE source_key=${source}`;
+          await tx`SELECT id,payload_hash,created_at FROM superadmin_notification_events WHERE source_key=${source}`;
         if (existing) {
           check(
             existing.payload_hash === hash,
@@ -209,14 +209,14 @@ function createNotificationService(
           return { id: existing.id, created_at: existing.created_at };
         }
         const [rate] =
-          await tx`SELECT count(*)::int AS count FROM notification_events WHERE source_key LIKE ${"announcement:" + user.id + ":%"} AND created_at>now()-interval '1 minute'`;
+          await tx`SELECT count(*)::int AS count FROM superadmin_notification_events WHERE source_key LIKE ${"announcement:" + user.id + ":%"} AND created_at>now()-interval '1 minute'`;
         check(
           rate.count < 10,
           "Announcement limit reached. Try again in a minute.",
           429,
         );
         const [row] =
-          await tx`INSERT INTO notification_events(source_key,channel,kind,title,body,priority,audience,payload_hash)
+          await tx`INSERT INTO superadmin_notification_events(source_key,channel,kind,title,body,priority,audience,payload_hash)
           VALUES(${source},'announcements','announcement',${input.title},${input.body},${input.priority},${tx.json({ mode: input.roles.length ? "roles" : "all", roles: input.roles })},${hash})
           ON CONFLICT(source_key) DO UPDATE SET source_key=EXCLUDED.source_key RETURNING id,payload_hash,created_at`;
         check(
@@ -249,13 +249,13 @@ function createNotificationService(
         await tx`SELECT pg_advisory_xact_lock(hashtextextended(${user.sessionId},35))`;
         // Token rotation replaces the previous token for this installation's
         // session, preventing duplicate sends to old and new tokens.
-        await tx`DELETE FROM notification_devices WHERE user_id=${user.id} AND session_id=${user.sessionId} AND token<>${body.token}`;
+        await tx`DELETE FROM superadmin_notification_devices WHERE user_id=${user.id} AND session_id=${user.sessionId} AND token<>${body.token}`;
         // A token bound to another active session cannot be stolen by guessing it.
         const [row] =
-          await tx`INSERT INTO notification_devices(user_id,session_id,token,platform)
+          await tx`INSERT INTO superadmin_notification_devices(user_id,session_id,token,platform)
           VALUES(${user.id},${user.sessionId},${body.token},${body.platform})
           ON CONFLICT(token) DO UPDATE SET user_id=EXCLUDED.user_id,session_id=EXCLUDED.session_id,platform=EXCLUDED.platform,updated_at=now()
-          WHERE notification_devices.user_id=EXCLUDED.user_id OR NOT EXISTS(SELECT 1 FROM internal_user_sessions s WHERE s.id=notification_devices.session_id AND s.revoked_at IS NULL AND s.expires_at>now())
+          WHERE superadmin_notification_devices.user_id=EXCLUDED.user_id OR NOT EXISTS(SELECT 1 FROM internal_user_sessions s WHERE s.id=superadmin_notification_devices.session_id AND s.revoked_at IS NULL AND s.expires_at>now())
           RETURNING id,platform`;
         check(
           row,
@@ -268,28 +268,28 @@ function createNotificationService(
     async deviceStatus(user) {
       if (!user.sessionId) return { enabled: false };
       const [row] =
-        await sql`SELECT EXISTS(SELECT 1 FROM notification_devices WHERE user_id=${user.id} AND session_id=${user.sessionId}) AS enabled`;
+        await sql`SELECT EXISTS(SELECT 1 FROM superadmin_notification_devices WHERE user_id=${user.id} AND session_id=${user.sessionId}) AS enabled`;
       return row;
     },
     async removeSessionDevices(user) {
       if (user.sessionId)
-        await sql`DELETE FROM notification_devices WHERE user_id=${user.id} AND session_id=${user.sessionId}`;
+        await sql`DELETE FROM superadmin_notification_devices WHERE user_id=${user.id} AND session_id=${user.sessionId}`;
       return { success: true };
     },
     async removeDevice(user, id) {
       uuid(id);
-      await sql`DELETE FROM notification_devices WHERE id=${id} AND user_id=${user.id}`;
+      await sql`DELETE FROM superadmin_notification_devices WHERE id=${id} AND user_id=${user.id}`;
       return { success: true };
     },
     async health(user) {
       check(user.isFounder, "Founder access required", 403);
       const [events, deliveries] = await Promise.all([
-        sql`SELECT count(*) FILTER(WHERE processed_at IS NULL AND dead_at IS NULL)::int AS pending,count(*) FILTER(WHERE dead_at IS NOT NULL)::int AS dead,min(created_at) FILTER(WHERE processed_at IS NULL AND dead_at IS NULL) AS oldest_pending FROM notification_events`,
-        sql`SELECT transport,state,count(*)::int AS count FROM notification_deliveries GROUP BY transport,state`,
+        sql`SELECT count(*) FILTER(WHERE processed_at IS NULL AND dead_at IS NULL)::int AS pending,count(*) FILTER(WHERE dead_at IS NOT NULL)::int AS dead,min(created_at) FILTER(WHERE processed_at IS NULL AND dead_at IS NULL) AS oldest_pending FROM superadmin_notification_events`,
+        sql`SELECT transport,state,count(*)::int AS count FROM superadmin_notification_deliveries GROUP BY transport,state`,
       ]);
       const [failedEvents, failedDeliveries] = await Promise.all([
-        sql`SELECT id,channel,kind,attempts,last_error FROM notification_events WHERE dead_at IS NOT NULL ORDER BY dead_at DESC LIMIT 50`,
-        sql`SELECT id,transport,attempts,last_error FROM notification_deliveries WHERE state='dead' ORDER BY available_at DESC LIMIT 50`,
+        sql`SELECT id,channel,kind,attempts,last_error FROM superadmin_notification_events WHERE dead_at IS NOT NULL ORDER BY dead_at DESC LIMIT 50`,
+        sql`SELECT id,transport,attempts,last_error FROM superadmin_notification_deliveries WHERE state='dead' ORDER BY available_at DESC LIMIT 50`,
       ]);
       return {
         events: events[0],
@@ -303,7 +303,7 @@ function createNotificationService(
       check(user.isFounder, "Founder access required", 403);
       uuid(id);
       const [row] =
-        await sql`UPDATE notification_events SET dead_at=NULL,attempts=0,available_at=now(),last_error=NULL WHERE id=${id} AND dead_at IS NOT NULL RETURNING id`;
+        await sql`UPDATE superadmin_notification_events SET dead_at=NULL,attempts=0,available_at=now(),last_error=NULL WHERE id=${id} AND dead_at IS NOT NULL RETURNING id`;
       check(row, "Failed event not found", 404);
       return row;
     },
@@ -311,7 +311,7 @@ function createNotificationService(
       check(user.isFounder, "Founder access required", 403);
       uuid(id);
       const [row] =
-        await sql`UPDATE notification_deliveries SET state='pending',attempts=0,available_at=now(),last_error=NULL WHERE id=${id} AND state='dead' RETURNING id`;
+        await sql`UPDATE superadmin_notification_deliveries SET state='pending',attempts=0,available_at=now(),last_error=NULL WHERE id=${id} AND state='dead' RETURNING id`;
       check(row, "Failed delivery not found", 404);
       return row;
     },
